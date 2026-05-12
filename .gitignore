@@ -1,0 +1,41 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+.eggs/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# Pipeline outputs -- DO NOT commit raw data or fits to git.
+output/
+fitted_pa_images/
+images/
+psfs/
+*.fits
+
+# Local config that shouldn't leak
+.env
+*.local.toml
