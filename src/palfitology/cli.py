@@ -39,6 +39,7 @@ from .catalog import (  # noqa: E402
     load_catalog,
 )
 from .pipeline import fit_catalog  # noqa: E402
+from .reconcile import _add_reconcile_subparser  # noqa: E402
 
 logger = logging.getLogger("palfitology")
 
@@ -169,6 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     _add_fit_pa_subparser(subparsers)
+    _add_reconcile_subparser(subparsers)
     _stub_subparser(subparsers, "download", "planned")
     _stub_subparser(subparsers, "consensus", "planned")
     _stub_subparser(subparsers, "galfit", "planned")
