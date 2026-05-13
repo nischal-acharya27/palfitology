@@ -10,6 +10,7 @@ import pandas as pd
 from palfitology.reconcile import (
     _wrap_pa_0_180,
     circular_diff_deg,
+    plot_reconciliation,
     reconcile,
 )
 
@@ -87,3 +88,20 @@ def test_reconcile_writes_expected_columns(tmp_path: Path):
     # Per-band columns exist
     assert "pa_rSDSS" in out.columns
     assert "pa_diff_iSDSS" in out.columns
+
+
+def test_plot_reconciliation_writes_png(tmp_path: Path):
+    """plot_reconciliation should produce a non-empty PNG without crashing."""
+    table = pd.DataFrame({
+        "id": ["a", "b", "c"],
+        "pa_jplus": [10.0, 45.0, 90.0],
+        "pa_jplus_norm": [10.0, 45.0, 90.0],
+        "pa_rSDSS": [11.0, 44.0, 175.0],            # last one wraps near 0
+        "pa_diff_rSDSS": [1.0, 1.0, 5.0],
+        "pa_median_ok": [10.5, 44.5, 175.0],
+        "pa_diff_median": [0.5, 0.5, 5.0],
+    })
+    out = tmp_path / "scatter.png"
+    plot_reconciliation(table=table, band="rSDSS", out_path=out)
+    assert out.is_file()
+    assert out.stat().st_size > 1000  # plausible PNG, not zero bytes

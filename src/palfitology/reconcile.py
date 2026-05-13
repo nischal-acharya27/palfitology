@@ -31,6 +31,90 @@ from .catalog import load_catalog
 logger = logging.getLogger(__name__)
 
 
+def plot_reconciliation(
+    table: pd.DataFrame,
+    band: str,
+    out_path: Path,
+    title_suffix: str = "",
+) -> None:
+    """Scatter-plot catalog pa_jplus vs our fitted PA for one band (or median).
+
+    ``band`` can be a canonical band name like ``rSDSS`` or the special string
+    ``"median"`` for the per-object cross-band median.
+
+    The plot includes a 1:1 line plus wrap-aware ``y = x ± 180`` dashed lines,
+    since position angle is direction-only and a 180° flip is the same axis.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    if band == "median":
+        y_col = "pa_median_ok"
+        y_label = "Our PA (per-object median of OK bands)"
+    else:
+        y_col = f"pa_{band}"
+        y_label = f"Our PA ({band})"
+        if y_col not in table.columns:
+            raise ValueError(
+                f"Column {y_col!r} not in reconciliation table. "
+                f"Bands available: {[c[3:] for c in table.columns if c.startswith('pa_')]}"
+            )
+
+    x = table["pa_jplus_norm"].to_numpy()
+    y = table[y_col].to_numpy()
+    mask = np.isfinite(x) & np.isfinite(y)
+    x, y = x[mask], y[mask]
+    n_plotted = int(mask.sum())
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+
+    ax.scatter(x, y, s=18, alpha=0.75, edgecolors="black", linewidths=0.4)
+
+    # 1:1 line and the two PA-wrap "shadow" lines.
+    ax.plot([0, 180], [0, 180], "-", color="C3", lw=1.0, label="y = x (1:1)")
+    ax.plot([0, 180], [180, 360], "--", color="C3", lw=0.7, alpha=0.6,
+            label="y = x ± 180 (wrap-equivalent)")
+    ax.plot([0, 180], [-180, 0], "--", color="C3", lw=0.7, alpha=0.6)
+
+    ax.set_xlim(0, 180)
+    ax.set_ylim(0, 180)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel("Catalog pa_jplus  (wrapped to [0, 180°))")
+    ax.set_ylabel(y_label + "  (wrapped to [0, 180°))")
+
+    title = f"PA reconciliation: catalog vs {band}"
+    if title_suffix:
+        title += f"  —  {title_suffix}"
+    ax.set_title(title)
+
+    # Median circular diff annotation (lower-right corner).
+    diff_col = "pa_diff_median" if band == "median" else f"pa_diff_{band}"
+    if diff_col in table.columns:
+        diffs = table[diff_col].dropna().to_numpy()
+        if len(diffs) > 0:
+            ax.text(
+                0.98, 0.03,
+                f"N = {n_plotted}\n"
+                f"median |Δ| = {np.median(diffs):.2f}°\n"
+                f"68th pct |Δ| = {np.percentile(diffs, 68):.2f}°\n"
+                f"max |Δ| = {np.max(diffs):.2f}°",
+                transform=ax.transAxes,
+                ha="right", va="bottom",
+                fontsize=9,
+                bbox=dict(facecolor="white", alpha=0.85, edgecolor="0.7", pad=4),
+            )
+
+    ax.legend(loc="upper left", fontsize=8, framealpha=0.85)
+    ax.grid(True, alpha=0.3)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=130)
+    plt.close(fig)
+    logger.info(f"Wrote reconciliation scatter to {out_path}")
+
+
 def _wrap_pa_0_180(deg: float) -> float:
     """Wrap a PA in degrees into [0, 180). Returns NaN on NaN input."""
     if deg is None or not np.isfinite(deg):
@@ -200,6 +284,19 @@ def _add_reconcile_subparser(subparsers):
                    help="Output summary CSV (default: ./fitted_pa_images/PA_reconciliation.csv).")
     p.add_argument("--bands", nargs="+", default=None,
                    help="Bands to include as columns (default: the canonical 12).")
+    p.add_argument(
+        "--plot",
+        nargs="*",
+        default=None,
+        metavar="BAND",
+        help=(
+            "Also write scatter plots of catalog pa_jplus vs our fitted PA "
+            "for the given band(s). Pass band names (e.g. --plot rSDSS iSDSS) "
+            "or the special value 'median' for the per-object cross-band "
+            "median. With no arguments (just --plot), defaults to "
+            "'rSDSS iSDSS median'. Output PNGs go next to the summary CSV."
+        ),
+    )
     p.set_defaults(func=_cmd_reconcile)
     return p
 
@@ -224,7 +321,7 @@ def _cmd_reconcile(args) -> int:
     output_path = args.output or (fitted_dir / "PA_reconciliation.csv")
 
     try:
-        reconcile(
+        table = reconcile(
             fitted_dir=fitted_dir,
             catalog_path=args.catalog,
             output_path=output_path,
@@ -233,4 +330,17 @@ def _cmd_reconcile(args) -> int:
     except FileNotFoundError as e:
         logger.error(str(e))
         return 1
+
+    # Optional scatter plots.
+    if args.plot is not None:
+        plot_bands = args.plot if len(args.plot) > 0 else ["rSDSS", "iSDSS", "median"]
+        for b in plot_bands:
+            png_path = output_path.with_name(
+                output_path.stem + f"_{b}.png"
+            )
+            try:
+                plot_reconciliation(table=table, band=b, out_path=png_path)
+            except ValueError as e:
+                logger.warning(f"Skipping plot for {b}: {e}")
+
     return 0
