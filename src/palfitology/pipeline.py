@@ -30,8 +30,9 @@ import pandas as pd
 from astropy.io import fits
 
 from .fit import FitCandidate, fit_pa_with_fallbacks
-from .images import locate_band_fits
+from .images import locate_band_fits, locate_band_psf
 from .plots import make_band_plot, make_summary_mosaic
+from .psf import DEFAULT_PSF_GATE, preprocess_for_fit
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ RESULT_COLUMNS = [
     "id", "band", "fits_path", "est_pa", "est_sma", "est_ell", "x0", "y0",
     "pa_err", "selection_score", "fit_config", "smoothing_sigma",
     "used_weak_fallback", "n_configs_tried", "is_imputed", "status",
+    "psf_mode", "psf_fwhm_pixels",
 ]
 
 
@@ -57,6 +59,7 @@ def _missing_row(objectid: str, band: str, eps_prior: float, pa_prior: float,
         "fit_config": status, "smoothing_sigma": np.nan,
         "used_weak_fallback": 0, "n_configs_tried": 0,
         "is_imputed": 0, "status": status,
+        "psf_mode": "none", "psf_fwhm_pixels": np.nan,
     }
 
 
@@ -66,6 +69,17 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
     This is the function dispatched to each worker process. It always returns
     a row (with status='missing' if no cutout was found), so the pipeline can
     track per-object completion deterministically.
+
+    PSF flow (v0.2+):
+      1. Open the cutout.
+      2. Call ``preprocess_for_fit`` to optionally Wiener-deconvolve the cutout
+         using the per-band PSF. The 'auto' mode skips deconvolution when the
+         PSF is small compared to the galaxy.
+      3. Fit on the (possibly deconvolved) image. If the fit fails AND we
+         deconvolved, retry on the raw cutout as a safety net. The final
+         ``psf_mode`` in the CSV reflects what was actually used:
+         ``raw``, ``deconv``, ``deconv->raw_fallback``, ``missing_psf``, or
+         ``off``.
     """
     objectid = task["objectid"]
     band = task["band"]
@@ -76,6 +90,9 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
     min_sma_abs = task["min_sma_abs"]
     min_sma_frac = task["min_sma_frac"]
     keep_best_of = task["keep_best_of"]
+    psf_mode = task.get("psf_mode", "auto")
+    psf_gate = task.get("psf_gate", DEFAULT_PSF_GATE)
+    r_eff_pixels = task.get("r_eff_pixels", float("nan"))
 
     obj_out_dir = output_dir / objectid
     obj_out_dir.mkdir(parents=True, exist_ok=True)
@@ -97,14 +114,50 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"[{objectid}/{band}] failed to open FITS: {e}")
         return _missing_row(objectid, band, eps_prior, pa_prior, "missing")
 
+    # ------------------------------------------------------------------
+    # PSF preprocessing (V0.2)
+    # ------------------------------------------------------------------
+    psf_path = locate_band_psf(image_path, band) if psf_mode != "off" else None
+    psf_info = preprocess_for_fit(
+        image=data,
+        psf_path=psf_path,
+        r_eff_pixels=float(r_eff_pixels),
+        mode=psf_mode,
+        gate=psf_gate,
+    )
+    fit_image = psf_info.image_for_fit
+    final_psf_mode = psf_info.mode
+    psf_fwhm = psf_info.psf_fwhm_pixels
+
     cand, n_tried = fit_pa_with_fallbacks(
-        data=data,
+        data=fit_image,
         eps_prior=eps_prior,
         pa_prior=pa_prior,
         min_sma_abs=min_sma_abs,
         min_sma_frac=min_sma_frac,
         keep_best_of=keep_best_of,
     )
+
+    # Safety net: if we deconvolved and the fit failed, retry on the raw
+    # cutout. This protects against deconvolution amplifying noise in a way
+    # that breaks the isophote fitter.
+    if cand is None and final_psf_mode == "deconv":
+        logger.info(
+            f"[{objectid}/{band}] deconvolved fit failed -- retrying on raw cutout"
+        )
+        cand_raw, n_tried_raw = fit_pa_with_fallbacks(
+            data=data,
+            eps_prior=eps_prior,
+            pa_prior=pa_prior,
+            min_sma_abs=min_sma_abs,
+            min_sma_frac=min_sma_frac,
+            keep_best_of=keep_best_of,
+        )
+        n_tried += n_tried_raw
+        if cand_raw is not None:
+            cand = cand_raw
+            fit_image = data
+            final_psf_mode = "deconv->raw_fallback"
 
     is_imputed = cand is None
     if is_imputed:
@@ -148,6 +201,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
             "used_weak_fallback": int(cand.weak),
             "n_configs_tried": n_tried,
             "is_imputed": 0, "status": status,
+            "psf_mode": final_psf_mode, "psf_fwhm_pixels": psf_fwhm,
         }
     y_shape, x_shape = data.shape
     return {
@@ -163,6 +217,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
         "fit_config": "imputed", "smoothing_sigma": np.nan,
         "used_weak_fallback": 0, "n_configs_tried": n_tried,
         "is_imputed": 1, "status": status,
+        "psf_mode": final_psf_mode, "psf_fwhm_pixels": psf_fwhm,
     }
 
 
@@ -258,13 +313,35 @@ def fit_catalog(
     keep_best_of: int = 8,
     workers: int = 1,
     make_summary: bool = True,
+    psf_mode: str = "auto",
+    psf_gate: float = DEFAULT_PSF_GATE,
 ) -> pd.DataFrame:
     """Fit every (object, band) pair in `catalog` and write outputs to `output_dir`.
 
     Returns a dataframe with one row per (id, band), columns documented at
     `RESULT_COLUMNS`.
+
+    Parameters
+    ----------
+    psf_mode
+        ``'auto'`` (default) -- deconvolve only when the PSF FWHM is at least
+        ``psf_gate`` * R_EFF (R_EFF in pixels, taken from the catalog's
+        ``R_EFF`` column when present).
+        ``'on'`` -- always deconvolve when a PSF file is available.
+        ``'off'`` -- never deconvolve (v0.1.0 behaviour).
+    psf_gate
+        Threshold ratio used in ``'auto'`` mode. See ``palfitology.psf``.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    has_r_eff = "R_EFF" in catalog.columns
+    if psf_mode in ("auto", "on") and not has_r_eff:
+        if psf_mode == "auto":
+            logger.warning(
+                "psf-mode=auto requested but catalog has no R_EFF column -- "
+                "the gate falls back to 'raw' (no deconvolution) for every row. "
+                "Add an R_EFF column (in pixels) to enable deconvolution."
+            )
 
     tasks: List[Dict[str, Any]] = []
     expected_bands_by_obj: Dict[str, set] = {}
@@ -277,6 +354,7 @@ def fit_catalog(
             else 0.3
         )
         pa_prior = float(row.get("pa_jplus", 30.0))
+        r_eff_pixels = float(row.get("R_EFF", np.nan)) if has_r_eff else float("nan")
         objectid = str(row["id"])
         expected_bands_by_obj.setdefault(objectid, set())
         for band in bands:
@@ -291,6 +369,9 @@ def fit_catalog(
                 "min_sma_abs": min_sma_abs,
                 "min_sma_frac": min_sma_frac,
                 "keep_best_of": keep_best_of,
+                "psf_mode": psf_mode,
+                "psf_gate": psf_gate,
+                "r_eff_pixels": r_eff_pixels,
             })
 
     logger.info(

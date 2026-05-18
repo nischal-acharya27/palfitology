@@ -76,6 +76,19 @@ def _add_fit_pa_subparser(subparsers: argparse._SubParsersAction) -> None:
                    help="Number of parallel worker processes. 0 = os.cpu_count().")
     p.add_argument("--no-summary", action="store_true",
                    help="Skip the per-object 3x4 summary mosaic.")
+    p.add_argument("--psf-mode", choices=["auto", "on", "off"], default="auto",
+                   help=(
+                       "PSF preprocessing mode (default: auto). "
+                       "'auto' deconvolves only when PSF FWHM >= --psf-gate * R_EFF; "
+                       "'on' always deconvolves when a PSF is available; "
+                       "'off' disables PSF preprocessing (v0.1.0 behaviour)."
+                   ))
+    p.add_argument("--psf-gate", type=float, default=0.2,
+                   help=(
+                       "Threshold ratio (PSF FWHM / R_EFF) above which the "
+                       "auto mode deconvolves (default: 0.2). Lower = more "
+                       "aggressive deconvolution."
+                   ))
     p.add_argument("--debug", action="store_true",
                    help="Verbose per-attempt logging.")
     p.set_defaults(func=_cmd_fit_pa)
@@ -138,6 +151,8 @@ def _cmd_fit_pa(args: argparse.Namespace) -> int:
         keep_best_of=args.keep_best_of,
         workers=args.workers,
         make_summary=not args.no_summary,
+        psf_mode=args.psf_mode,
+        psf_gate=args.psf_gate,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

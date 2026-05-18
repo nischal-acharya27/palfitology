@@ -8,10 +8,11 @@ the fit logic into notebooks or other scripts.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0.dev0"
 
 from .fit import FitCandidate, fit_pa_with_fallbacks
 from .pipeline import fit_catalog
+from .psf import PSFInfo, preprocess_for_fit
 
 # Canonical J-PLUS / SDSS band order, broadband and medium/narrowband interleaved.
 ALL_BANDS = [
@@ -35,4 +36,6 @@ __all__ = [
     "FitCandidate",
     "fit_pa_with_fallbacks",
     "fit_catalog",
+    "PSFInfo",
+    "preprocess_for_fit",
 ]
