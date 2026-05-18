@@ -245,6 +245,11 @@ def wiener_deconvolve(
 def _load_psf_array(psf_path: Optional[Path]) -> Optional[np.ndarray]:
     """Open a PSF FITS file. Returns None if the file is missing or unreadable.
 
+    J-PLUS' PSFEx-derived PSF cutouts store the array in extension HDU[1]
+    with HDU[0] holding only header metadata. Other surveys (and the
+    synthetic PSFs used in our unit tests) put the image in HDU[0]. We try
+    HDU[0] first and fall back to HDU[1] if [0] is empty or not 2D.
+
     Defers the astropy import so that callers using ``psf-mode=off`` never
     touch astropy via this module.
     """
@@ -253,7 +258,15 @@ def _load_psf_array(psf_path: Optional[Path]) -> Optional[np.ndarray]:
     try:
         from astropy.io import fits  # local import: see docstring
         with fits.open(psf_path) as hdul:
-            data = hdul[0].data
+            data = None
+            for hdu in hdul:
+                arr = hdu.data
+                if arr is None:
+                    continue
+                arr = np.asarray(arr)
+                if arr.ndim == 2 and arr.size > 0:
+                    data = arr
+                    break
         if data is None:
             return None
         return np.asarray(data, dtype=float)

@@ -43,6 +43,13 @@ def _write_fits(path: Path, data: np.ndarray) -> None:
     hdu.writeto(path, overwrite=True)
 
 
+def _write_fits_in_ext1(path: Path, data: np.ndarray) -> None:
+    """Mimic J-PLUS PSFEx output: empty primary HDU, image in extension 1."""
+    primary = fits.PrimaryHDU()
+    image = fits.ImageHDU(data=data.astype(np.float32))
+    fits.HDUList([primary, image]).writeto(path, overwrite=True)
+
+
 # ---------------------------------------------------------------------------
 # FWHM estimation
 # ---------------------------------------------------------------------------
@@ -206,3 +213,18 @@ def test_gate_threshold_is_honoured(tmp_path: Path):
 def test_default_gate_is_documented_value():
     # Guard the doc: if we change the default, make us update the docstring too.
     assert DEFAULT_PSF_GATE == 0.2
+
+
+def test_psf_loader_handles_image_in_ext1(tmp_path: Path):
+    """J-PLUS PSFEx output stores the PSF in HDU[1], not HDU[0]."""
+    psf = _gaussian_2d((25, 25), sigma=3.0)
+    psf_path = tmp_path / "psf_ext1.fits"
+    _write_fits_in_ext1(psf_path, psf)
+
+    img = _gaussian_2d((40, 40), sigma=4.0)
+    info = preprocess_for_fit(img, psf_path=psf_path, r_eff_pixels=4.0, mode="auto")
+    # FWHM should have been measured -- proving the loader found the image in [1].
+    assert np.isfinite(info.psf_fwhm_pixels)
+    assert info.psf_fwhm_pixels > 0
+    # And ratio 7.06/4 ~ 1.77 > 0.2 -> deconv.
+    assert info.mode == "deconv"
