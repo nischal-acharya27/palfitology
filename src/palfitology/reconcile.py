@@ -122,6 +122,23 @@ def _wrap_pa_0_180(deg: float) -> float:
     return float(deg % 180.0)
 
 
+def transform_pa_jplus(deg: float) -> float:
+    """Convert J-PLUS catalog pa_jplus into photutils' image frame.
+
+    photutils returns PA in degrees, CCW from +x (image-frame). J-PLUS /
+    SExtractor THETA_J2000 is measured east of north (sky-frame), so the
+    reflection-plus-shift rule (90 - pa_jplus) mod 180 moves it into
+    photutils' frame. Empirically verified on the user's data: this collapses
+    the reconciliation scatter onto y=x, whereas a plain `% 180` produces two
+    parallel branches.
+
+    NaN propagates.
+    """
+    if deg is None or not np.isfinite(deg):
+        return float("nan")
+    return float((90.0 - float(deg)) % 180.0)
+
+
 def circular_diff_deg(a: float, b: float) -> float:
     """Smallest angular separation between two undirected axes, in [0, 90]."""
     if not np.isfinite(a) or not np.isfinite(b):
@@ -211,9 +228,11 @@ def reconcile(
         else:
             medians[oid] = float(np.median(ok_vals))
 
-    # Join with the catalog's pa_jplus (also wrap to [0, 180) for fair comparison).
+    # Convert catalog pa_jplus (sky-frame, N-through-E) into photutils' image
+    # frame (CCW from +x) via (90 - x) mod 180. This is the empirically
+    # correct mapping; the scatter then clusters on the y=x diagonal.
     cat = catalog[["id", "pa_jplus"]].copy()
-    cat["pa_jplus_norm"] = cat["pa_jplus"].apply(_wrap_pa_0_180)
+    cat["pa_jplus_norm"] = cat["pa_jplus"].apply(transform_pa_jplus)
 
     out = (
         cat.set_index("id")
