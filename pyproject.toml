@@ -52,9 +52,9 @@ dev = [
 palfitology = "palfitology.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/<your-username>/palfitology"
-Issues = "https://github.com/<your-username>/palfitology/issues"
-Repository = "https://github.com/<your-username>/palfitology"
+Homepage = "https://github.com/nisach02/palfitology"
+Issues = "https://github.com/nisach02/palfitology/issues"
+Repository = "https://github.com/nisach02/palfitology"
 
 [tool.setuptools.packages.find]
 where = ["src"]

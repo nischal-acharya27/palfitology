@@ -16,18 +16,31 @@ The pipeline is built around `photutils.isophote.Ellipse` with a robust,
 face-on-safe isophote selection rule (see `docs/design.md`) and runs many
 galaxies in parallel on a multi-core node.
 
+## Documentation
+
+- **[Architecture map](https://nisach02.github.io/palfitology/)** — interactive
+  single-page diagram of every module, its dependencies, the data flows, ADRs,
+  CSV schemas, and the V0.2 run results. Click any module for its file path,
+  public symbols, and tests. `Cmd/Ctrl + K` opens a command palette.
+- **[`docs/architecture.json`](https://nisach02.github.io/palfitology/architecture.json)** —
+  machine-readable architecture spec the page above consumes; suitable for AI
+  coding agents and other tooling.
+- **[`docs/design.md`](docs/design.md)** — rationale behind the isophote selection rule.
+- **[`docs/pipeline.md`](docs/pipeline.md)** — per-stage walkthrough of the pipeline.
+
 ## Status
 
-Early alpha. The library refactor is in progress. The current canonical command
-is `palfitology fit-pa`; PSF support and consensus are planned for the next
-iterations.
+Early alpha. `palfitology fit-pa` and `palfitology reconcile` are working.
+**v0.2** ships PSF-aware preprocessing (Wiener deconvolution gated on PSF
+FWHM vs catalog `R_EFF`); cross-band consensus and the GALFIT priors writer
+are next.
 
 ## Install
 
 From source (recommended while in development):
 
 ```bash
-git clone https://github.com/<your-username>/palfitology.git
+git clone https://github.com/nisach02/palfitology.git
 cd palfitology
 pip install -e .
 ```
