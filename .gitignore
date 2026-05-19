@@ -39,3 +39,7 @@ psfs/
 # Local config that shouldn't leak
 .env
 *.local.toml
+
+# Generated decks -- rebuild from docs/architecture.json via build_deck_v2.js
+# (kept out of git so the repo stays text-only)
+*.pptx
