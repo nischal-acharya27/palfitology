@@ -35,27 +35,33 @@ def main() -> None:
     path = Path("fitted_pa_images/PA_reconciliation.csv")
     if not path.is_file():
         raise SystemExit(
-            f"{path} not found. Run `palfitology reconcile --plot` first."
+            f"{path} not found. Run `palfitology reconcile --plot --catalog <cat>.csv` first."
         )
 
     df = pd.read_csv(path)
-    est_cols = [c for c in df.columns if c.startswith("est_pa_")]
-    if not est_cols:
-        raise SystemExit(
-            "No est_pa_<band> columns in reconciliation CSV. Was reconcile run?"
-        )
+    # The reconciliation CSV produced by `palfitology reconcile` uses
+    # 'pa_<band>' for the per-band fitted PA and 'pa_diff_<band>' for the
+    # already-computed difference. We use the raw per-band column and
+    # recompute the difference in two frames here.
+    band_cols = [
+        c for c in df.columns
+        if c.startswith("pa_") and not c.startswith("pa_diff_")
+        and c not in ("pa_jplus", "pa_jplus_norm", "pa_median_ok")
+    ]
+    if not band_cols:
+        raise SystemExit("No pa_<band> columns in reconciliation CSV.")
     if "pa_jplus" not in df.columns:
         raise SystemExit("pa_jplus column missing.")
 
     print(f"Loaded {len(df)} rows from {path}")
     print()
-    print(f"{'band':6s}  {'n':>6s}  {'median|d|direct':>16s}  "
-          f"{'median|d|flipped':>17s}  {'flip wins %':>11s}")
-    print("-" * 65)
+    print(f"{'band':6s}  {'n':>6s}  {'med|d|direct':>13s}  "
+          f"{'med|d|flipped':>14s}  {'flip wins %':>11s}")
+    print("-" * 60)
 
     pa_jplus = df["pa_jplus"]
-    for col in est_cols:
-        band = col.replace("est_pa_", "")
+    for col in band_cols:
+        band = col.replace("pa_", "", 1)
         est = df[col]
 
         d_dir = circ_diff_mod_180(est, pa_jplus)
@@ -70,7 +76,7 @@ def main() -> None:
         med_flip = float(np.nanmedian(d_flip[mask]))
         flip_better_pct = float((d_flip[mask] < d_dir[mask]).mean() * 100)
 
-        print(f"{band:6s}  {n:>6d}  {med_dir:>15.1f}°  {med_flip:>16.1f}°  "
+        print(f"{band:6s}  {n:>6d}  {med_dir:>12.1f}°  {med_flip:>13.1f}°  "
               f"{flip_better_pct:>10.1f}%")
 
 
