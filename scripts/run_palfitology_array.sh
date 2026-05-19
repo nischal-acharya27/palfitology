@@ -47,13 +47,24 @@ if [ ! -f "$CHUNK_CSV" ]; then
     exit 1
 fi
 
-echo "[task $SGE_TASK_ID] catalog=$CHUNK_CSV  out=$TASK_OUT_DIR  cores=$NSLOTS"
+# Where the per-object image folders live. Override on the qsub command line
+# with `qsub -v IMAGES_ROOT=/some/path scripts/run_palfitology_array.sh` if
+# the data folder moves again.
+IMAGES_ROOT="${IMAGES_ROOT:-$HOME/PALFITology_OLD/images}"
+
+if [ ! -d "$IMAGES_ROOT" ]; then
+    echo "[task $SGE_TASK_ID] ERROR: IMAGES_ROOT=$IMAGES_ROOT does not exist." >&2
+    exit 2
+fi
+
+echo "[task $SGE_TASK_ID] catalog=$CHUNK_CSV  images=$IMAGES_ROOT  out=$TASK_OUT_DIR  cores=$NSLOTS"
 
 # ---------------------------------------------------------------------------
 # Fit
 # ---------------------------------------------------------------------------
 palfitology fit-pa \
     --catalog "$CHUNK_CSV" \
+    --images-root "$IMAGES_ROOT" \
     --output-dir "$TASK_OUT_DIR" \
     --workers "$NSLOTS" \
     --psf-mode auto \

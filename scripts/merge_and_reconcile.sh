@@ -11,10 +11,16 @@
 # fitted_pa_images/ tree, and runs `palfitology reconcile --plot` to make the
 # pa_jplus vs est_pa scatter plots.
 
-set -euo pipefail
+# Conda's own activate/deactivate scripts reference unbound variables
+# (e.g. SETVARS_CALL in mpivars.deactivate.sh), so we can't enable `set -u`
+# until after activation completes.
+set -eo pipefail
 
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate palfitology
+
+# Now safe to fail on unset variables.
+set -u
 export LD_PRELOAD=$CONDA_PREFIX/lib/libgomp.so.1
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
