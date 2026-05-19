@@ -1,0 +1,1986 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>palfitology — system handbook</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       palfitology · system handbook — V2 (editorial dark IDE)
+       Single saturated accent: gold #E0B863.
+       Typography: JetBrains Mono for everything except display
+       headings (Fraunces) and the wordmark.
+       ============================================================ */
+    :root {
+      --bg-0:   #0A0A0B;   /* page */
+      --bg-1:   #111114;   /* surfaces */
+      --bg-2:   #16171B;   /* raised */
+      --bg-3:   #1C1E23;   /* deepest panel */
+      --line:   #23262C;
+      --line-2: #2F333A;
+      --fg-0:   #ECECEC;   /* primary text */
+      --fg-1:   #B7B9BD;   /* secondary */
+      --fg-2:   #7A7D83;   /* muted */
+      --fg-3:   #54575C;   /* very muted */
+      --gold:   #E0B863;   /* the single accent */
+      --gold-d: #B58A35;
+      --hot:    #F2C361;
+      --rust:   #C0784F;   /* warning / divergent */
+      --crit:   #E26060;   /* problem */
+      --teal:   #5FA8A8;   /* secondary plot */
+      --mono:   'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --serif:  'Fraunces',     'Source Serif 4', Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg-0); color: var(--fg-0);
+      font-family: var(--mono);
+      font-size: 13.5px; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      font-feature-settings: "ss01" 1, "calt" 1, "cv11" 1;
+    }
+    ::selection { background: var(--gold); color: var(--bg-0); }
+
+    a { color: var(--gold); text-decoration: none; border-bottom: 1px solid transparent; }
+    a:hover { border-bottom-color: var(--gold); }
+
+    code, kbd {
+      font-family: var(--mono);
+      background: var(--bg-2); color: var(--fg-0);
+      padding: 1px 6px; border-radius: 3px;
+      font-size: 0.92em;
+    }
+    kbd {
+      border: 1px solid var(--line-2);
+      box-shadow: inset 0 -1px 0 var(--line);
+      font-size: 11px;
+    }
+
+    /* ============================================================
+       Layout: 240px sidebar · main column
+       ============================================================ */
+    .app {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* ============================================================
+       Sidebar
+       ============================================================ */
+    aside.rail {
+      background: var(--bg-1);
+      border-right: 1px solid var(--line);
+      position: sticky; top: 0; height: 100vh;
+      padding: 22px 0 16px 22px;
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    aside.rail::-webkit-scrollbar { width: 6px; }
+    aside.rail::-webkit-scrollbar-thumb { background: var(--line-2); }
+
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 28px;
+    }
+    .brand-mark {
+      width: 26px; height: 26px; border-radius: 5px;
+      background: var(--gold);
+      display: grid; place-items: center;
+      color: var(--bg-0); font-family: var(--serif); font-weight: 700; font-size: 16px;
+    }
+    .brand-name {
+      font-family: var(--serif); font-size: 17px; font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-group { margin-bottom: 18px; }
+    .nav-group-title {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--fg-3); margin: 0 0 8px 12px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px 5px 14px; margin-right: 12px;
+      border-radius: 4px 0 0 4px;
+      color: var(--fg-1); cursor: pointer;
+      font-size: 12.5px;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover { background: var(--bg-2); color: var(--fg-0); }
+    .nav-item.active {
+      background: var(--bg-2); color: var(--gold);
+      border-left-color: var(--gold);
+    }
+    .nav-num { color: var(--fg-3); font-size: 11px; min-width: 18px; }
+
+    .rail-foot {
+      margin-top: auto; padding: 14px 12px 0 0;
+      font-size: 11px; color: var(--fg-3); line-height: 1.6;
+      border-top: 1px solid var(--line);
+    }
+    .rail-foot kbd { background: var(--bg-2); padding: 1px 5px; }
+
+    /* ============================================================
+       Main column
+       ============================================================ */
+    main {
+      max-width: 1080px;
+      padding: 36px 56px 96px;
+      min-width: 0;
+    }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      aside.rail { position: static; height: auto; }
+      main { padding: 24px; }
+    }
+
+    /* Header / hero */
+    .hero {
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 36px;
+    }
+    .hero .eyebrow {
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 14px;
+    }
+    .hero h1 {
+      font-family: var(--serif); font-weight: 600;
+      font-size: 48px; line-height: 1.04; letter-spacing: -0.02em;
+      margin: 0 0 12px;
+    }
+    .hero h1 em { font-style: italic; color: var(--fg-1); font-weight: 500; }
+    .hero p.tag {
+      color: var(--fg-1); max-width: 64ch; font-size: 14.5px;
+      margin: 0 0 24px;
+    }
+    .hero-meta {
+      display: flex; flex-wrap: wrap; gap: 22px;
+      font-size: 11.5px; color: var(--fg-2);
+    }
+    .hero-meta b { color: var(--fg-0); font-weight: 500; }
+
+    /* Section */
+    section.s { margin: 72px 0; scroll-margin-top: 18px; }
+    section.s > .s-head {
+      display: flex; align-items: baseline; gap: 14px;
+      margin-bottom: 6px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--line-2);
+    }
+    section.s > .s-head .num {
+      color: var(--gold); font-size: 12px; letter-spacing: 0.1em;
+    }
+    section.s > .s-head h2 {
+      font-family: var(--serif); font-weight: 600;
+      font-size: 28px; letter-spacing: -0.01em;
+      margin: 0; color: var(--fg-0);
+    }
+    section.s > .s-lede {
+      color: var(--fg-1); margin: 18px 0 28px; max-width: 70ch;
+      font-size: 14px;
+    }
+
+    /* Stat grid (top of hero) */
+    .stats {
+      display: grid; gap: 1px;
+      grid-template-columns: repeat(4, 1fr);
+      background: var(--line); border: 1px solid var(--line);
+    }
+    .stat {
+      background: var(--bg-1); padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat .v {
+      font-family: var(--serif); font-weight: 600;
+      font-size: 32px; line-height: 1; color: var(--gold);
+      letter-spacing: -0.01em;
+    }
+    .stat .l {
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--fg-2);
+    }
+
+    /* Generic card */
+    .card {
+      background: var(--bg-1);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg-2);
+      display: flex; align-items: center; gap: 10px;
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--fg-2);
+    }
+    .card-head .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+    .card-body { padding: 18px; }
+
+    /* Architecture diagram */
+    .diagram-shell {
+      background: var(--bg-1); border: 1px solid var(--line); border-radius: 6px;
+      overflow: hidden;
+    }
+    .diagram-toolbar {
+      background: var(--bg-2); border-bottom: 1px solid var(--line);
+      padding: 8px 12px; display: flex; align-items: center; gap: 10px;
+      font-size: 11px; color: var(--fg-2);
+    }
+    .diagram-toolbar .spacer { flex: 1; }
+    .btn-ic {
+      background: transparent; border: 1px solid var(--line-2); color: var(--fg-1);
+      width: 26px; height: 26px; border-radius: 4px; cursor: pointer;
+      font-family: var(--mono); font-size: 14px;
+      display: grid; place-items: center;
+    }
+    .btn-ic:hover { background: var(--bg-3); color: var(--gold); border-color: var(--gold-d); }
+
+    .diagram-host {
+      position: relative; height: 660px; cursor: grab;
+      background:
+        linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 24px 24px,
+        linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 24px 24px,
+        var(--bg-1);
+      background-blend-mode: normal;
+      opacity: 1;
+    }
+    .diagram-host::before {
+      /* fade the grid so it's a quiet background, not a focal element */
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, var(--bg-1) 0%, transparent 18%, transparent 82%, var(--bg-1) 100%);
+    }
+    .diagram-host svg { width: 100%; height: 100%; display: block; }
+
+    .node-rect {
+      fill: var(--bg-2); stroke: var(--line-2); stroke-width: 1;
+      transition: stroke 0.15s, filter 0.15s;
+      cursor: pointer;
+    }
+    .node-rect:hover { stroke: var(--gold); filter: drop-shadow(0 0 14px rgba(224,184,99,0.18)); }
+    .node-rect.active { stroke: var(--gold); stroke-width: 1.6; filter: drop-shadow(0 0 18px rgba(224,184,99,0.32)); }
+    .node-rect.stub  { stroke-dasharray: 3 3; opacity: 0.65; }
+
+    .node-id        { font: 600 10px var(--mono); fill: var(--gold); letter-spacing: 0.08em; pointer-events: none; }
+    .node-name      { font: 600 13px var(--mono); fill: var(--fg-0); pointer-events: none; }
+    .node-loc       { font: 400 10.5px var(--mono); fill: var(--fg-2); pointer-events: none; }
+
+    .edge-line     { stroke: var(--line-2); stroke-width: 1; fill: none; opacity: 0.6; }
+    .edge-line.hot { stroke: var(--gold); opacity: 1; stroke-width: 1.6; }
+    .edge-line.dim { opacity: 0.12; }
+    .edge-arrow    { fill: var(--line-2); opacity: 0.6; }
+    .group-bg      { fill: var(--bg-3); opacity: 0.65; stroke: var(--line); stroke-dasharray: 2 4; }
+    .group-label   { font: 600 9.5px var(--mono); letter-spacing: 0.14em; fill: var(--fg-3); text-transform: uppercase; }
+
+    /* Drawer */
+    .drawer {
+      position: fixed; top: 0; right: 0; height: 100vh;
+      width: 480px; max-width: 92vw;
+      background: var(--bg-1); border-left: 1px solid var(--line);
+      transform: translateX(105%); transition: transform 0.28s cubic-bezier(.22,.61,.36,1);
+      z-index: 80; overflow-y: auto;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer header {
+      padding: 18px 22px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: flex-start; gap: 12px;
+      position: sticky; top: 0; background: var(--bg-1); z-index: 1;
+    }
+    .drawer header .ic {
+      width: 36px; height: 36px; border-radius: 5px;
+      background: var(--bg-2); border: 1px solid var(--line-2);
+      display: grid; place-items: center; color: var(--gold);
+      font-family: var(--serif); font-weight: 700; font-size: 18px;
+    }
+    .drawer header .t {
+      flex: 1;
+      font-family: var(--serif); font-weight: 600; font-size: 22px;
+      line-height: 1.15;
+    }
+    .drawer header .sub {
+      color: var(--fg-2); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .drawer header button {
+      background: transparent; border: 1px solid var(--line-2); color: var(--fg-1);
+      width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
+      font-family: var(--mono); font-size: 16px;
+    }
+    .drawer header button:hover { color: var(--crit); }
+    .drawer .body { padding: 22px; }
+    .drawer .field { margin-bottom: 22px; }
+    .drawer .field h4 {
+      font: 600 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--fg-2); margin: 0 0 8px;
+    }
+    .chip {
+      display: inline-block; padding: 3px 9px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--line-2);
+      color: var(--fg-1); font-size: 11px;
+      margin: 2px 4px 2px 0;
+      cursor: default;
+    }
+    .chip.linked { cursor: pointer; }
+    .chip.linked:hover { color: var(--gold); border-color: var(--gold-d); }
+    .chip.gold { background: rgba(224,184,99,0.10); color: var(--hot); border-color: var(--gold-d); }
+
+    /* Lists / tables ============================================ */
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    th, td {
+      padding: 9px 14px; vertical-align: top; text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+    thead th {
+      font: 600 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--fg-3); background: var(--bg-2);
+      border-bottom: 1px solid var(--line);
+    }
+    tbody tr:hover { background: var(--bg-2); }
+    td code { background: transparent; color: var(--fg-0); padding: 0; }
+    td .type { color: var(--gold); }
+
+    /* Code blocks ============================================ */
+    pre.code {
+      background: var(--bg-3); border: 1px solid var(--line);
+      border-radius: 5px; padding: 14px 16px;
+      overflow-x: auto;
+      font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+      color: var(--fg-0); margin: 0;
+    }
+    .tok-comment { color: var(--fg-3); font-style: italic; }
+    .tok-prompt  { color: var(--gold); }
+    .tok-flag    { color: var(--hot); }
+    .tok-str     { color: #9DC183; }
+    .tok-fn      { color: var(--gold); }
+
+    /* Bars ============================================ */
+    .bar-row { margin-bottom: 11px; }
+    .bar-meta {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--fg-2); margin-bottom: 3px;
+    }
+    .bar-meta .k { color: var(--fg-0); }
+    .bar-meta .v { color: var(--fg-2); font-variant-numeric: tabular-nums; }
+    .bar-track  { height: 3px; background: var(--bg-2); position: relative; }
+    .bar-fill   { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gold); }
+
+    /* Data flow ============================================ */
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 10px; align-items: center;
+      padding: 8px 0; border-bottom: 1px dashed var(--line);
+      font-size: 12px;
+    }
+    .flow-row:last-child { border-bottom: none; }
+    .flow-row .from, .flow-row .to {
+      padding: 4px 10px; border-radius: 4px;
+      background: var(--bg-2); border: 1px solid var(--line);
+      color: var(--fg-0); font-family: var(--mono);
+    }
+    .flow-row .arr { color: var(--gold); font-weight: 700; }
+    .flow-row .via { color: var(--gold); font-size: 11px; }
+    .flow-row .carries { color: var(--fg-2); font-size: 11px; max-width: 30ch; }
+
+    /* ADR ============================================ */
+    .adr {
+      display: grid; grid-template-columns: 120px 1fr; gap: 24px;
+      padding: 22px 24px; border-bottom: 1px solid var(--line);
+    }
+    .adr:last-child { border-bottom: none; }
+    .adr .meta .id {
+      font: 600 11px var(--mono); color: var(--gold); letter-spacing: 0.08em;
+    }
+    .adr .meta .status {
+      display: inline-block; margin-top: 6px;
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--fg-2); padding: 2px 7px; border: 1px solid var(--line-2); border-radius: 3px;
+    }
+    .adr .meta .status.accepted  { color: var(--gold); border-color: var(--gold-d); }
+    .adr .meta .status.tentative { color: var(--rust); border-color: var(--rust); }
+    .adr .title { font-family: var(--serif); font-size: 19px; font-weight: 600; margin-bottom: 10px; line-height: 1.25; }
+    .adr .pair {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+      font-size: 12.5px;
+    }
+    .adr .pair h5 {
+      font: 600 9.5px var(--mono); color: var(--fg-3); text-transform: uppercase;
+      letter-spacing: 0.12em; margin: 0 0 5px;
+    }
+    .adr .pair p { margin: 0; color: var(--fg-1); }
+    .adr .pair p strong { color: var(--fg-0); font-weight: 500; }
+
+    /* Constraints list ============================================ */
+    .rule {
+      display: grid; grid-template-columns: 110px 1fr;
+      gap: 16px; align-items: baseline;
+      padding: 10px 0; border-bottom: 1px dashed var(--line);
+      font-size: 12.5px;
+    }
+    .rule:last-child { border-bottom: none; }
+    .rule .cat {
+      font: 600 10px var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--gold);
+    }
+    .rule .body { color: var(--fg-1); }
+
+    /* Convention list */
+    .conv {
+      padding: 10px 0; border-bottom: 1px dashed var(--line);
+      font-size: 12.5px;
+    }
+    .conv:last-child { border-bottom: none; }
+    .conv .id {
+      font-family: var(--mono); font-size: 11px; color: var(--gold);
+      letter-spacing: 0.06em; margin-bottom: 3px;
+    }
+    .conv .body { color: var(--fg-1); }
+
+    /* Roadmap ============================================ */
+    .roadmap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .road {
+      padding: 18px 16px; background: var(--bg-1); border: 1px solid var(--line); border-radius: 5px;
+      position: relative;
+    }
+    .road.done {
+      border-color: var(--gold-d);
+      background: linear-gradient(180deg, rgba(224,184,99,0.05), var(--bg-1) 60%);
+    }
+    .road .v { font-family: var(--mono); font-size: 14px; color: var(--gold); font-weight: 600; letter-spacing: 0.04em; }
+    .road .f { font-family: var(--serif); font-size: 17px; line-height: 1.25; margin: 8px 0 8px; color: var(--fg-0); font-weight: 600; }
+    .road .s { font-size: 11.5px; color: var(--fg-2); line-height: 1.55; }
+    .road.done::after {
+      content: "shipped";
+      position: absolute; top: 14px; right: 14px;
+      font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--bg-0); background: var(--gold);
+      padding: 1px 7px; border-radius: 999px; font-weight: 600;
+    }
+
+    /* Command palette ============================================ */
+    .pal-wrap {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: flex-start; justify-content: center;
+      padding-top: 14vh;
+    }
+    .pal-wrap.open { display: flex; }
+    .palette {
+      width: 560px; max-width: 92vw;
+      background: var(--bg-1); border: 1px solid var(--line-2); border-radius: 8px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      overflow: hidden;
+    }
+    .palette input {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--fg-0); font-family: var(--mono); font-size: 15px;
+      padding: 16px 18px; border-bottom: 1px solid var(--line);
+    }
+    .palette input::placeholder { color: var(--fg-3); }
+    .pal-results { max-height: 380px; overflow-y: auto; }
+    .pal-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 18px; cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .pal-item:hover, .pal-item.sel {
+      background: var(--bg-2); border-left-color: var(--gold);
+    }
+    .pal-item .kind {
+      font: 600 9.5px var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--gold);
+      min-width: 58px;
+    }
+    .pal-item .lbl { flex: 1; font-size: 13px; color: var(--fg-0); }
+    .pal-item .hint { color: var(--fg-3); font-size: 11px; }
+
+    /* File tree component */
+    .tree { font-family: var(--mono); font-size: 12.5px; line-height: 1.9; }
+    .tree .row { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 0 4px; border-bottom: 1px dashed var(--line); }
+    .tree .row:last-child { border-bottom: none; }
+    .tree .row .pth { color: var(--fg-1); }
+    .tree .row .pth .accent { color: var(--gold); }
+    .tree .row .note { color: var(--fg-3); font-size: 11px; }
+
+    /* Misc */
+    hr.thin { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 720px) { .grid-2, .stats, .roadmap { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ====== Sidebar ====== -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div>
+        <div class="brand-name">palfitology</div>
+        <div style="font-size: 10px; color: var(--fg-3); letter-spacing: 0.06em;" id="brand-meta"></div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Handbook</div>
+      <div class="nav-item active" data-target="overview"><span class="nav-num">00</span>Overview</div>
+      <div class="nav-item" data-target="architecture"><span class="nav-num">01</span>Architecture</div>
+      <div class="nav-item" data-target="dataflows"><span class="nav-num">02</span>Data flows</div>
+      <div class="nav-item" data-target="cli"><span class="nav-num">03</span>Interface</div>
+      <div class="nav-item" data-target="schemas"><span class="nav-num">04</span>Data schemas</div>
+      <div class="nav-item" data-target="filesystem"><span class="nav-num">05</span>Filesystem</div>
+      <div class="nav-item" data-target="results"><span class="nav-num">06</span>Run results</div>
+      <div class="nav-item" data-target="ops"><span class="nav-num">07</span>Cluster ops</div>
+      <div class="nav-item" data-target="conventions"><span class="nav-num">08</span>Conventions</div>
+      <div class="nav-item" data-target="constraints"><span class="nav-num">09</span>Constraints</div>
+      <div class="nav-item" data-target="adrs"><span class="nav-num">10</span>Decisions</div>
+      <div class="nav-item" data-target="open"><span class="nav-num">11</span>Open questions</div>
+      <div class="nav-item" data-target="roadmap"><span class="nav-num">12</span>Roadmap</div>
+    </div>
+
+    <div class="rail-foot">
+      <div style="margin-bottom: 8px;">Press <kbd>⌘</kbd> <kbd>K</kbd> for the command palette</div>
+      <div>v2 · editorial dark · <a href="../v1/architecture.html">↩ V1</a></div>
+    </div>
+  </aside>
+
+  <!-- ====== Main ====== -->
+  <main>
+
+    <!-- 00 — Overview -->
+    <section class="s" id="overview">
+      <div class="hero">
+        <div class="eyebrow" id="overview-eyebrow"></div>
+        <h1 id="overview-title"></h1>
+        <p class="tag" id="overview-tag"></p>
+        <div class="hero-meta" id="overview-meta"></div>
+      </div>
+      <div class="stats" id="stats-grid"></div>
+    </section>
+
+    <!-- 01 — Architecture -->
+    <section class="s" id="architecture">
+      <div class="s-head">
+        <span class="num">/01</span>
+        <h2>Architecture</h2>
+      </div>
+      <p class="s-lede">
+        Thirteen modules across four functional layers — ingest, transform, orchestrate, output. Click any node to open its
+        manifest. Hover to isolate its dependency edges. Drag to pan. Scroll to zoom.
+      </p>
+
+      <div class="diagram-shell">
+        <div class="diagram-toolbar">
+          <span style="color: var(--gold); font-weight: 600;">▾</span>
+          <span>module graph · <span style="color: var(--fg-3);">click · hover · pan · scroll</span></span>
+          <span class="spacer"></span>
+          <button class="btn-ic" id="z-out"   title="zoom out">−</button>
+          <button class="btn-ic" id="z-reset" title="reset">◌</button>
+          <button class="btn-ic" id="z-in"    title="zoom in">+</button>
+        </div>
+        <div class="diagram-host" id="diagram-host">
+          <svg id="diagram" viewBox="0 0 1200 700"></svg>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-head"><span class="dot"></span>file tree</div>
+        <div class="card-body" style="padding: 0;">
+          <div class="tree" id="file-tree"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 — Data flows -->
+    <section class="s" id="dataflows">
+      <div class="s-head"><span class="num">/02</span><h2>Data flows</h2></div>
+      <p class="s-lede">Three end-to-end paths through the system. Each arrow is a function call carrying a typed value.</p>
+      <div id="flows-host" class="grid-2" style="grid-template-columns: 1fr;"></div>
+    </section>
+
+    <!-- 03 — CLI -->
+    <section class="s" id="cli">
+      <div class="s-head"><span class="num">/03</span><h2>Interface</h2></div>
+      <p class="s-lede">Five subcommands. Two working today; three planned. Python API surface mirrors the CLI for embedding in notebooks.</p>
+
+      <div class="card">
+        <div class="card-head"><span class="dot"></span>subcommands</div>
+        <table id="cli-table">
+          <thead><tr><th>command</th><th>purpose</th><th>status</th><th>flags</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="grid-2" style="margin-top: 20px;">
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>python api</div>
+          <div class="card-body">
+            <table id="api-table"><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>example invocations</div>
+          <div class="card-body" id="invocations" style="display: grid; gap: 12px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 — Schemas -->
+    <section class="s" id="schemas">
+      <div class="s-head"><span class="num">/04</span><h2>Data schemas</h2></div>
+      <p class="s-lede">The two CSVs that flow between stages. Column-level types and descriptions.</p>
+      <div id="schemas-host" style="display: grid; gap: 20px;"></div>
+    </section>
+
+    <!-- 05 — Filesystem -->
+    <section class="s" id="filesystem">
+      <div class="s-head"><span class="num">/05</span><h2>Filesystem</h2></div>
+      <p class="s-lede">Where everything lives.</p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>inputs</div>
+          <div class="card-body" style="padding: 0;">
+            <div class="tree" id="fs-in"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>outputs</div>
+          <div class="card-body" style="padding: 0;">
+            <div class="tree" id="fs-out"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 — Run results -->
+    <section class="s" id="results">
+      <div class="s-head"><span class="num">/06</span><h2>Run results · V0.2</h2></div>
+      <p class="s-lede" id="results-lede"></p>
+      <div class="stats" id="results-stats"></div>
+
+      <div class="grid-2" style="margin-top: 24px;">
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>psf_mode distribution</div>
+          <div class="card-body" id="psf-mode-bars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>status distribution</div>
+          <div class="card-body" id="status-bars"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-head"><span class="dot"></span>pa flip diagnostic — direct vs 180-flipped, per band</div>
+        <table>
+          <thead><tr><th>band</th><th>n</th><th>med |Δ| direct</th><th>med |Δ| flipped</th><th>flip wins</th></tr></thead>
+          <tbody id="flip-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 07 — Cluster ops -->
+    <section class="s" id="ops">
+      <div class="s-head"><span class="num">/07</span><h2>Cluster ops</h2></div>
+      <p class="s-lede">SGE submission scripts and the gotchas they exist to protect against.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>submission scripts</div>
+          <table id="scripts-table"><tbody></tbody></table>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="dot"></span>cluster gotchas</div>
+          <div class="card-body">
+            <ul id="gotchas-list" style="margin: 0; padding-left: 16px; color: var(--fg-1); font-size: 12.5px; line-height: 1.75;"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <div class="card-head"><span class="dot"></span>shell session — laptop + cluster</div>
+        <div class="card-body">
+          <pre class="code"><span class="tok-comment"># laptop — push the feature branch</span>
+<span class="tok-prompt">$</span> git push origin feature/v0.2-psf
+
+<span class="tok-comment"># cluster — pull, install, submit</span>
+<span class="tok-prompt">$</span> cd ~/palfitology && git pull
+<span class="tok-prompt">$</span> pip install -e . --no-deps && hash -r
+
+<span class="tok-prompt">$</span> cd ~/PALFITology_OLD
+<span class="tok-prompt">$</span> ./scripts/submit_all.sh 1638518.csv
+  array job     -> 806464 (8 tasks)
+  reconcile job -> held on 806464
+
+<span class="tok-prompt">$</span> qstat -u $USER
+  806464 .... running on 8 nodes</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 — Conventions -->
+    <section class="s" id="conventions">
+      <div class="s-head"><span class="num">/08</span><h2>Conventions</h2></div>
+      <p class="s-lede">Rules of the road. Every convention exists because a previous attempt was bitten by its absence.</p>
+      <div class="card"><div class="card-body" id="conv-list"></div></div>
+    </section>
+
+    <!-- 09 — Constraints -->
+    <section class="s" id="constraints">
+      <div class="s-head"><span class="num">/09</span><h2>Constraints</h2></div>
+      <p class="s-lede">Hard limits — numerical, data, performance, cluster, and process.</p>
+      <div class="card"><div class="card-body" id="con-list"></div></div>
+    </section>
+
+    <!-- 10 — ADRs -->
+    <section class="s" id="adrs">
+      <div class="s-head"><span class="num">/10</span><h2>Architecture decisions</h2></div>
+      <p class="s-lede">Why the codebase looks the way it does.</p>
+      <div class="card" id="adrs-host"></div>
+    </section>
+
+    <!-- 11 — Open questions -->
+    <section class="s" id="open">
+      <div class="s-head"><span class="num">/11</span><h2>Open questions</h2></div>
+      <div class="card"><div class="card-body" id="oq-host" style="display: grid; gap: 20px;"></div></div>
+    </section>
+
+    <!-- 12 — Roadmap -->
+    <section class="s" id="roadmap">
+      <div class="s-head"><span class="num">/12</span><h2>Roadmap</h2></div>
+      <p class="s-lede">v0.1 to v0.5.</p>
+      <div class="roadmap" id="roadmap-host"></div>
+
+      <div class="card" style="margin-top: 28px;">
+        <div class="card-head"><span class="dot"></span>tests · coverage</div>
+        <table id="tests-table"><thead><tr><th>file</th><th>LOC</th><th>covers</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <hr class="thin">
+    <footer style="color: var(--fg-3); font-size: 11px; display: flex; justify-content: space-between;">
+      <span>generated from <a href="architecture.json">docs/architecture.json</a></span>
+      <span id="footer-version"></span>
+    </footer>
+  </main>
+
+</div>
+
+<!-- Drawer -->
+<aside class="drawer" id="drawer">
+  <header>
+    <div class="ic" id="drawer-ic">·</div>
+    <div class="t">
+      <div class="sub" id="drawer-sub"></div>
+      <div id="drawer-title"></div>
+    </div>
+    <button onclick="closeDrawer()">×</button>
+  </header>
+  <div class="body" id="drawer-body"></div>
+</aside>
+
+<!-- Command palette -->
+<div class="pal-wrap" id="palette-wrap">
+  <div class="palette">
+    <input id="pal-input" type="text" placeholder="Search modules, symbols, ADRs, scripts…" autocomplete="off" />
+    <div class="pal-results" id="pal-results"></div>
+  </div>
+</div>
+
+<script id="arch-data" type="application/json">{
+  "$schema": "https://palfitology.dev/architecture.schema.v2.json",
+  "meta": {
+    "package": "palfitology",
+    "version": "0.2.0.dev0",
+    "branch": "feature/v0.2-psf",
+    "tagline": "PSF-aware isophotal PA fitting and GALFIT prep for J-PLUS multi-band galaxy cutouts",
+    "generated_at": "2026-05-19",
+    "loc_total": 2045,
+    "loc_tests": 650,
+    "loc_scripts": 409,
+    "test_count": 45,
+    "languages": ["Python 3.11", "Bash"],
+    "license": "MIT"
+  },
+
+  "tech_stack": {
+    "runtime": {
+      "python": ">=3.10 (cluster: 3.11)",
+      "shell": "bash (SGE submit scripts)",
+      "package_manager": "pip + conda (cluster ships heavy deps as conda binaries)"
+    },
+    "deps_runtime": {
+      "numpy": ">=1.24",
+      "scipy": ">=1.10",
+      "pandas": ">=2.0",
+      "matplotlib": ">=3.7",
+      "astropy": ">=5.3",
+      "photutils": ">=1.10"
+    },
+    "deps_dev": {
+      "pytest": ">=7.4",
+      "pytest-cov": ">=4.1",
+      "ruff": ">=0.4"
+    },
+    "build": {
+      "backend": "setuptools >= 68",
+      "layout": "src-layout (src/palfitology/)",
+      "wheel": "py3-none-any (pure Python)"
+    },
+    "scheduler": "SGE (CEFCA hpc-login), 40 cores/node",
+    "version_control": {
+      "remote": "https://github.com/nisach02/palfitology",
+      "current_branch": "feature/v0.2-psf",
+      "main_branch": "main"
+    }
+  },
+
+  "entry_points": {
+    "console_script": {
+      "name": "palfitology",
+      "module": "palfitology.cli:main",
+      "subcommands": ["fit-pa", "reconcile", "download", "consensus", "galfit"]
+    },
+    "python_api": [
+      {"symbol": "palfitology.fit_catalog",          "module": "palfitology.pipeline",  "kind": "function"},
+      {"symbol": "palfitology.fit_pa_with_fallbacks","module": "palfitology.fit",       "kind": "function"},
+      {"symbol": "palfitology.preprocess_for_fit",   "module": "palfitology.psf",       "kind": "function"},
+      {"symbol": "palfitology.FitCandidate",         "module": "palfitology.fit",       "kind": "dataclass"},
+      {"symbol": "palfitology.PSFInfo",              "module": "palfitology.psf",       "kind": "dataclass"},
+      {"symbol": "palfitology.ALL_BANDS",            "module": "palfitology",           "kind": "constant"}
+    ],
+    "cli_invocations": [
+      "palfitology fit-pa --catalog 1638518.csv --images-root images --workers 40 --psf-mode auto --psf-gate 0.2",
+      "palfitology reconcile --plot --catalog 1638518.csv",
+      "palfitology --version"
+    ]
+  },
+
+  "components": [
+    {
+      "id": "catalog",
+      "name": "Catalog ingest",
+      "module": "palfitology.catalog",
+      "path": "src/palfitology/catalog.py",
+      "loc": 73,
+      "kind": "leaf",
+      "group": "ingest",
+      "color": "ember",
+      "icon": "table",
+      "depends_on": [],
+      "depended_on_by": ["cli", "reconcile"],
+      "public_symbols": ["load_catalog", "auto_discover_catalog", "filter_to_existing_image_dirs", "REQUIRED_COLUMNS"],
+      "external_deps": ["pandas"],
+      "notes": "Synthesizes id from TILE_ID-NUMBER when missing; strips '#' SQL preamble from raw ADQL exports. Required cols: id, A_WORLD, B_WORLD, pa_jplus. R_EFF (pixels) optional but needed for psf-mode auto/on."
+    },
+    {
+      "id": "images",
+      "name": "Cutout & PSF discovery",
+      "module": "palfitology.images",
+      "path": "src/palfitology/images.py",
+      "loc": 66,
+      "kind": "leaf",
+      "group": "ingest",
+      "color": "ember",
+      "icon": "folder-search",
+      "depends_on": [],
+      "depended_on_by": ["pipeline"],
+      "public_symbols": ["locate_band_fits", "locate_band_psf", "open_fits_array", "locate_band_with_fallback"],
+      "external_deps": ["astropy.io.fits", "numpy"],
+      "notes": "Globs images/<id>/fits_images_*/<band>_cutout.fits and images/<id>/psfs_*/psf_*_<band>.fits. Returns Path or None."
+    },
+    {
+      "id": "psf",
+      "name": "PSF preprocessing",
+      "module": "palfitology.psf",
+      "path": "src/palfitology/psf.py",
+      "loc": 328,
+      "kind": "transform",
+      "group": "psf",
+      "color": "clay",
+      "icon": "blur",
+      "depends_on": [],
+      "depended_on_by": ["pipeline", "package"],
+      "public_symbols": ["preprocess_for_fit", "estimate_psf_fwhm", "wiener_deconvolve", "PSFInfo", "DEFAULT_PSF_GATE"],
+      "external_deps": ["numpy", "astropy.io.fits (lazy)"],
+      "v0_2_feature": true,
+      "notes": "Moment-based FWHM. Wiener K = max(1e-6, (bg_RMS / dynamic_range)^2). Loader walks HDU list for first 2D image (handles PSFEx ext-1 layout). Modes: auto | on | off."
+    },
+    {
+      "id": "selection",
+      "name": "Isophote row selection",
+      "module": "palfitology.selection",
+      "path": "src/palfitology/selection.py",
+      "loc": 85,
+      "kind": "leaf",
+      "group": "fit",
+      "color": "ember",
+      "icon": "filter",
+      "depends_on": [],
+      "depended_on_by": ["fit"],
+      "public_symbols": ["select_isophote"],
+      "external_deps": ["numpy"],
+      "notes": "V6 rule: SMA floor max(3 px, 0.05*half_width); drop pa_err<=0 and ndata<5; min pa_err/sma score. Weak fallback to outermost surviving row."
+    },
+    {
+      "id": "fit",
+      "name": "Isophote fit + fallback ladder",
+      "module": "palfitology.fit",
+      "path": "src/palfitology/fit.py",
+      "loc": 203,
+      "kind": "transform",
+      "group": "fit",
+      "color": "ember",
+      "icon": "target",
+      "depends_on": ["selection"],
+      "depended_on_by": ["pipeline", "plots", "package"],
+      "public_symbols": ["fit_pa_with_fallbacks", "FitCandidate"],
+      "external_deps": ["numpy", "photutils.isophote", "scipy.ndimage.gaussian_filter"],
+      "notes": "Generates ~57 (eps, pa) configs (catalog prior, orthogonal, perpendicular, 50 MC seeds at np.random.seed(42)) × 2 smoothing levels (sigma=0, sigma=2). Returns best by score=pa_err/sma after keep_best_of=8 strong fits."
+    },
+    {
+      "id": "plots",
+      "name": "Diagnostic plotting",
+      "module": "palfitology.plots",
+      "path": "src/palfitology/plots.py",
+      "loc": 185,
+      "kind": "sink",
+      "group": "output",
+      "color": "warm",
+      "icon": "image",
+      "depends_on": ["fit"],
+      "depended_on_by": ["pipeline"],
+      "public_symbols": ["make_band_plot", "make_summary_mosaic"],
+      "external_deps": ["matplotlib.pyplot (Agg)", "astropy.visualization"],
+      "notes": "ZScale + Asinh stretch. Per-band PNG with fitted ellipse + caption; 3x4 mosaic per object (red=ok, orange=weak, gray=missing)."
+    },
+    {
+      "id": "pipeline",
+      "name": "Pipeline orchestrator",
+      "module": "palfitology.pipeline",
+      "path": "src/palfitology/pipeline.py",
+      "loc": 456,
+      "kind": "orchestrator",
+      "group": "orchestrate",
+      "color": "clay",
+      "icon": "cpu",
+      "depends_on": ["fit", "images", "plots", "psf"],
+      "depended_on_by": ["cli", "package"],
+      "public_symbols": ["fit_catalog", "process_one_band", "RESULT_COLUMNS"],
+      "external_deps": ["concurrent.futures.ProcessPoolExecutor", "pandas", "astropy.io.fits"],
+      "notes": "ProcessPoolExecutor over per-(object, band) tasks. Incremental per-object mosaic finalization once last band returns. BLAS-thread pinning via _worker_init."
+    },
+    {
+      "id": "reconcile",
+      "name": "Catalog reconciliation",
+      "module": "palfitology.reconcile",
+      "path": "src/palfitology/reconcile.py",
+      "loc": 365,
+      "kind": "post-process",
+      "group": "output",
+      "color": "ember",
+      "icon": "scatter",
+      "depends_on": ["catalog"],
+      "depended_on_by": ["cli"],
+      "public_symbols": ["reconcile", "plot_reconciliation", "transform_pa_jplus", "circular_diff_deg"],
+      "external_deps": ["pandas", "matplotlib.pyplot (Agg)"],
+      "notes": "Walks fitted_pa_images/<id>/PA_fits.csv, joins on id. transform_pa_jplus(d) = (90 - d) mod 180 brings sky-frame PA into photutils' image frame."
+    },
+    {
+      "id": "cli",
+      "name": "Command-line interface",
+      "module": "palfitology.cli",
+      "path": "src/palfitology/cli.py",
+      "loc": 207,
+      "kind": "interface",
+      "group": "interface",
+      "color": "clay",
+      "icon": "terminal",
+      "depends_on": ["catalog", "pipeline", "reconcile"],
+      "depended_on_by": [],
+      "public_symbols": ["main", "build_parser"],
+      "external_deps": ["argparse"],
+      "notes": "Pins BLAS=1 BEFORE importing numpy (must happen in parent process too, not just workers). Five subcommands; two working."
+    },
+    {
+      "id": "package",
+      "name": "Package surface",
+      "module": "palfitology.__init__",
+      "path": "src/palfitology/__init__.py",
+      "loc": 41,
+      "kind": "interface",
+      "group": "interface",
+      "color": "ember",
+      "icon": "package",
+      "depends_on": ["fit", "pipeline", "psf"],
+      "depended_on_by": [],
+      "public_symbols": ["__version__", "ALL_BANDS", "FitCandidate", "fit_pa_with_fallbacks", "fit_catalog", "PSFInfo", "preprocess_for_fit"],
+      "external_deps": [],
+      "notes": "12-band canonical order: uJAVA, J0378, J0395, J0410, J0430, gSDSS, J0515, rSDSS, J0660, iSDSS, J0861, zSDSS."
+    },
+    {
+      "id": "consensus",
+      "name": "Cross-band consensus",
+      "module": "palfitology.consensus",
+      "path": "src/palfitology/consensus.py",
+      "loc": 13,
+      "kind": "stub",
+      "group": "future",
+      "color": "muted",
+      "icon": "users",
+      "depends_on": [],
+      "depended_on_by": [],
+      "public_symbols": [],
+      "planned_version": "v0.3",
+      "notes": "Per-object PA from weighted-mean across the 12 bands, with outlier flagging."
+    },
+    {
+      "id": "galfit",
+      "name": "GALFIT priors writer",
+      "module": "palfitology.galfit",
+      "path": "src/palfitology/galfit.py",
+      "loc": 12,
+      "kind": "stub",
+      "group": "future",
+      "color": "muted",
+      "icon": "file-edit",
+      "depends_on": [],
+      "depended_on_by": [],
+      "public_symbols": [],
+      "planned_version": "v0.4",
+      "notes": "Emit GALFIT input files from fitted PAs and ellipticities."
+    },
+    {
+      "id": "download",
+      "name": "Cutout downloader",
+      "module": "palfitology.download",
+      "path": "src/palfitology/download.py",
+      "loc": 11,
+      "kind": "stub",
+      "group": "future",
+      "color": "muted",
+      "icon": "download",
+      "depends_on": [],
+      "depended_on_by": [],
+      "public_symbols": [],
+      "planned_version": "v0.5",
+      "notes": "Port AutomatedImageDownloadsV2 into a subcommand."
+    }
+  ],
+
+  "dependency_edges": [
+    {"from": "fit",        "to": "selection",  "kind": "internal"},
+    {"from": "pipeline",   "to": "fit",        "kind": "internal"},
+    {"from": "pipeline",   "to": "images",     "kind": "internal"},
+    {"from": "pipeline",   "to": "plots",      "kind": "internal"},
+    {"from": "pipeline",   "to": "psf",        "kind": "internal"},
+    {"from": "plots",      "to": "fit",        "kind": "internal"},
+    {"from": "reconcile",  "to": "catalog",    "kind": "internal"},
+    {"from": "cli",        "to": "catalog",    "kind": "internal"},
+    {"from": "cli",        "to": "pipeline",   "kind": "internal"},
+    {"from": "cli",        "to": "reconcile",  "kind": "internal"},
+    {"from": "package",    "to": "fit",        "kind": "re-export"},
+    {"from": "package",    "to": "pipeline",   "kind": "re-export"},
+    {"from": "package",    "to": "psf",        "kind": "re-export"}
+  ],
+
+  "data_flows": [
+    {
+      "id": "fit-pa-flow",
+      "label": "palfitology fit-pa",
+      "edges": [
+        {"from": "catalog.csv",                "to": "catalog",  "via": "load_catalog",                "carries": "DataFrame[id, A_WORLD, B_WORLD, pa_jplus, R_EFF?]"},
+        {"from": "catalog",                    "to": "pipeline", "via": "fit_catalog",                 "carries": "DataFrame"},
+        {"from": "images/<id>/*.fits",         "to": "images",   "via": "locate_band_fits",            "carries": "Path"},
+        {"from": "images",                     "to": "psf",      "via": "locate_band_psf + open",      "carries": "(image, psf_path, r_eff_pixels)"},
+        {"from": "psf",                        "to": "fit",      "via": "preprocess_for_fit",          "carries": "PSFInfo(image_for_fit, mode, psf_fwhm_pixels)"},
+        {"from": "fit",                        "to": "selection","via": "_fit_once",                   "carries": "iso_table"},
+        {"from": "selection",                  "to": "fit",      "via": "select_isophote",             "carries": "(row_idx, weak)"},
+        {"from": "fit",                        "to": "pipeline", "via": "fit_pa_with_fallbacks",       "carries": "(FitCandidate|None, n_tried)"},
+        {"from": "pipeline",                   "to": "plots",    "via": "make_band_plot",              "carries": "FitCandidate + raw image"},
+        {"from": "pipeline",                   "to": "fitted_pa_images/<id>/<band>_PA_fit.png", "via": "savefig"},
+        {"from": "pipeline",                   "to": "fitted_pa_images/<id>/<id>_summary.png",  "via": "make_summary_mosaic"},
+        {"from": "pipeline",                   "to": "fitted_pa_images/PA_results.csv",         "via": "DataFrame.to_csv"}
+      ]
+    },
+    {
+      "id": "reconcile-flow",
+      "label": "palfitology reconcile --plot",
+      "edges": [
+        {"from": "fitted_pa_images/<id>/PA_fits.csv", "to": "reconcile", "via": "_gather_per_object_fits", "carries": "long DataFrame"},
+        {"from": "catalog.csv",                       "to": "reconcile", "via": "load_catalog",            "carries": "DataFrame[id, pa_jplus]"},
+        {"from": "reconcile",                         "to": "fitted_pa_images/PA_reconciliation.csv",      "via": "to_csv"},
+        {"from": "reconcile",                         "to": "fitted_pa_images/PA_reconciliation_<band>.png", "via": "plot_reconciliation"}
+      ]
+    },
+    {
+      "id": "cluster-array-flow",
+      "label": "SGE 8-task array",
+      "edges": [
+        {"from": "catalog.csv",                 "to": "prepare_chunks.sh",        "via": "pandas split",        "carries": "cat_part_01..08.csv"},
+        {"from": "cat_part_NN.csv",             "to": "run_palfitology_array.sh", "via": "qsub -t 1-8 -tc 8",   "carries": "per-task fit-pa invocation"},
+        {"from": "fitted_pa_images_part_NN/",   "to": "merge_and_reconcile.sh",   "via": "qsub -hold_jid",      "carries": "merged fitted_pa_images/"}
+      ]
+    }
+  ],
+
+  "csv_schemas": {
+    "PA_results.csv": {
+      "rows_per": "(object, band)",
+      "row_count_example": 242736,
+      "columns": [
+        {"name": "id",                 "type": "str",   "desc": "Object id (TILE-NUMBER)"},
+        {"name": "band",               "type": "str",   "desc": "One of the 12 J-PLUS bands"},
+        {"name": "fits_path",          "type": "str",   "desc": "Absolute path to cutout"},
+        {"name": "est_pa",             "type": "float", "desc": "Fitted PA in degrees (CCW from +x, image frame)"},
+        {"name": "est_sma",            "type": "float", "desc": "Semi-major axis, pixels"},
+        {"name": "est_ell",            "type": "float", "desc": "Ellipticity 1 - b/a"},
+        {"name": "x0",                 "type": "float", "desc": "Fitted center x"},
+        {"name": "y0",                 "type": "float", "desc": "Fitted center y"},
+        {"name": "pa_err",             "type": "float", "desc": "Uncertainty on PA, degrees"},
+        {"name": "selection_score",    "type": "float", "desc": "pa_err / sma; lower is better"},
+        {"name": "fit_config",         "type": "str",   "desc": "Which fallback config produced the winning fit"},
+        {"name": "smoothing_sigma",    "type": "float", "desc": "Gaussian sigma applied before fitting"},
+        {"name": "used_weak_fallback", "type": "int",   "desc": "1 if no isophote cleared the SMA floor"},
+        {"name": "n_configs_tried",    "type": "int",   "desc": "Total fallback ladder steps attempted"},
+        {"name": "is_imputed",         "type": "int",   "desc": "1 if all fits failed and priors were used"},
+        {"name": "status",             "type": "str",   "desc": "ok | weak | imputed | missing"},
+        {"name": "psf_mode",           "type": "str",   "desc": "raw | deconv | deconv->raw_fallback | missing_psf | off"},
+        {"name": "psf_fwhm_pixels",    "type": "float", "desc": "Measured PSF FWHM, pixels"}
+      ]
+    },
+    "PA_reconciliation.csv": {
+      "rows_per": "object",
+      "row_count_example": 6522,
+      "columns": [
+        {"name": "id",                "type": "str"},
+        {"name": "pa_jplus",          "type": "float", "desc": "Catalog PA, sky frame (east of north)"},
+        {"name": "pa_jplus_norm",     "type": "float", "desc": "(90 - pa_jplus) mod 180 -- photutils frame"},
+        {"name": "pa_median_ok",      "type": "float", "desc": "Per-object median of OK bands"},
+        {"name": "pa_diff_median",    "type": "float", "desc": "Circular diff median vs catalog, [0, 90]"},
+        {"name": "n_bands_ok",        "type": "int"},
+        {"name": "n_bands_weak",      "type": "int"},
+        {"name": "n_bands_missing",   "type": "int"},
+        {"name": "pa_<band>",         "type": "float", "desc": "Per-band fitted PA wrapped to [0, 180)"},
+        {"name": "pa_diff_<band>",    "type": "float", "desc": "Per-band circular diff vs catalog"}
+      ]
+    }
+  },
+
+  "filesystem": {
+    "input_layout": {
+      "images/<id>/fits_images_<ra>_<dec>/<band>_cutout.fits": "12 per object",
+      "images/<id>/psfs_<ra>_<dec>/psf_<ra>_<dec>_<band>.fits": "12 per object",
+      "<catalog>.csv": "ADQL output or pre-processed (id, A_WORLD, B_WORLD, pa_jplus, R_EFF in pixels)"
+    },
+    "output_layout": {
+      "fitted_pa_images/<id>/<band>_PA_fit.png": "diagnostic, 12 per object",
+      "fitted_pa_images/<id>/<id>_summary.png":  "3x4 mosaic per object",
+      "fitted_pa_images/<id>/PA_fits.csv":       "12 rows per object",
+      "fitted_pa_images/all_summaries/<id>_summary.png": "central mosaic copies",
+      "fitted_pa_images/PA_results.csv":         "master table",
+      "fitted_pa_images/PA_reconciliation.csv":  "wide cross-match",
+      "fitted_pa_images/PA_reconciliation_<band>.png": "scatter plots"
+    }
+  },
+
+  "constants": {
+    "ALL_BANDS": ["uJAVA", "J0378", "J0395", "J0410", "J0430", "gSDSS", "J0515", "rSDSS", "J0660", "iSDSS", "J0861", "zSDSS"],
+    "DEFAULT_PSF_GATE": 0.2,
+    "default_sma_floor_px": 3.0,
+    "default_sma_floor_frac": 0.05,
+    "default_keep_best_of": 8,
+    "n_mc_seeds": 50,
+    "mc_seed": 42,
+    "smoothing_ladder_sigma": [0.0, 2.0],
+    "wiener_regularization_floor": 1e-6
+  },
+
+  "conventions": [
+    {"id": "pa-units",       "rule": "photutils returns PA in degrees, CCW from +x (image frame). Do NOT apply rad2deg."},
+    {"id": "pa-wrap",        "rule": "All PAs wrapped to [0, 180) before comparison -- PA is direction-only."},
+    {"id": "pa-diff",        "rule": "Circular diff in [0, 90]: min(|a-b| mod 180, 180 - |a-b| mod 180)."},
+    {"id": "pa-catalog-map", "rule": "transform_pa_jplus(d) = (90 - d) mod 180 brings sky-frame catalog PA into photutils' image frame."},
+    {"id": "parallelism",    "rule": "Per (object, band) tasks via ProcessPoolExecutor. BLAS pinned to 1 thread/worker BEFORE numpy imports."},
+    {"id": "psf-gate",       "rule": "psf-mode=auto deconvolves when psf_fwhm_pixels / r_eff_pixels >= gate (default 0.2)."},
+    {"id": "psf-fallback",   "rule": "If deconvolved fit imputes, retry on raw cutout and label psf_mode='deconv->raw_fallback'."},
+    {"id": "psf-hdu",        "rule": "PSF loader walks HDU list for first 2D image. J-PLUS PSFEx puts data in HDU[1], not HDU[0]."}
+  ],
+
+  "constraints": [
+    {"category": "numerical", "rule": "Wiener K must be >= regularization_floor (1e-6). Smaller values cause noise amplification on shallow narrowband cutouts."},
+    {"category": "numerical", "rule": "SMA floor = max(3 px, 0.05 * image_half_width). Below this, photutils returns degenerate sub-pixel isophotes with artificially low pa_err."},
+    {"category": "data",      "rule": "R_EFF column must be in PIXELS (not arcsec) when psf-mode is auto or on. Missing column -> warning + fall back to 'raw' everywhere."},
+    {"category": "perf",      "rule": "12N tasks for N objects. ProcessPoolExecutor with workers = NSLOTS; do NOT exceed cores per node or BLAS contention dominates."},
+    {"category": "perf",      "rule": "Per-object mosaic is finalized when its last band returns -- mosaics appear throughout the run, not only at the end."},
+    {"category": "cluster",   "rule": "LD_PRELOAD=$CONDA_PREFIX/lib/libgomp.so.1 required on hpc-login (static-TLS dlopen workaround)."},
+    {"category": "cluster",   "rule": "`set -u` must come AFTER `conda activate` -- mpivars.deactivate.sh references unbound variables."},
+    {"category": "cluster",   "rule": "qsub -wd or -cwd: SGE inherits the submission directory. Held reconcile job must share cwd with the array tasks."},
+    {"category": "cluster",   "rule": "Cluster ships old GCC (4.8.4). Run pip install -e . inside the 'palfitology' conda env so numpy/scipy/astropy come from prebuilt conda binaries, not source builds."},
+    {"category": "git",       "rule": "Sandbox cannot commit/push for the user; always instruct user to commit and push on their laptop."}
+  ],
+
+  "adrs": [
+    {
+      "id": "ADR-001",
+      "title": "Refactor V7 monolith into installable package",
+      "status": "accepted",
+      "context": "AutomatedPositionAngleV5/V6/V7.py grew to ~1600 lines. Hard to test, share, or evolve.",
+      "decision": "Split into src/palfitology/{catalog,images,selection,fit,plots,pipeline,cli,reconcile}.py with explicit imports. Keep V*.py scripts as read-only reference."
+    },
+    {
+      "id": "ADR-002",
+      "title": "Wiener deconvolution with FWHM gate instead of full convolved modelling",
+      "status": "accepted",
+      "context": "GALFIT downstream does proper convolved-model fitting. Palfitology only needs to give it good PA priors. Full convolved fitting in palfitology would reimplement GALFIT.",
+      "decision": "Conservative Wiener deconvolution gated on psf_fwhm/r_eff ratio. When PSF is small relative to galaxy, skip deconv to avoid noise amplification."
+    },
+    {
+      "id": "ADR-003",
+      "title": "ProcessPoolExecutor at (object, band) granularity, not (object)",
+      "status": "accepted",
+      "context": "Catalogs may have only a few hundred objects, but a 40-core node has 40 cores.",
+      "decision": "12N tasks for N objects. Even small catalogs saturate big nodes. Trade-off: 12x more IPC overhead, but bands within an object have no shared compute."
+    },
+    {
+      "id": "ADR-004",
+      "title": "BLAS thread pinning set in cli.py BEFORE numpy import",
+      "status": "accepted",
+      "context": "Workers inherit env, but the parent also imports numpy and would otherwise default to 40 BLAS threads.",
+      "decision": "os.environ.setdefault for OMP_NUM_THREADS etc. at the top of cli.py, AND repeated in pipeline._worker_init for each child."
+    },
+    {
+      "id": "ADR-005",
+      "title": "transform_pa_jplus = (90 - pa) mod 180 instead of WCS lookup",
+      "status": "tentative",
+      "context": "photutils returns image-frame CCW-from-+x; J-PLUS catalog pa_jplus is sky-frame east-of-north. Empirically the (90 - pa) mod 180 transform collapses scatter onto y=x for the deep broadbands.",
+      "decision": "Use this empirical mapping for now. V0.2 cluster run shows ~70% of rSDSS rows agree with this; 30% don't. May upgrade to per-cutout CD-matrix conversion in a follow-up (see open_questions.pa_split)."
+    },
+    {
+      "id": "ADR-006",
+      "title": "psf_mode 'deconv->raw_fallback' rather than dropping the row",
+      "status": "accepted",
+      "context": "On low-S/N cutouts, deconvolution can amplify noise enough that fit_pa_with_fallbacks imputes. Dropping those rows loses information.",
+      "decision": "If deconvolved fit imputes, retry on raw cutout. Track outcome in psf_mode column so downstream filtering is possible."
+    },
+    {
+      "id": "ADR-007",
+      "title": "Selection score = pa_err / sma instead of pa_err alone",
+      "status": "accepted",
+      "context": "V4/V5 picked the row with the smallest pa_err. For face-on galaxies this collapsed to sub-pixel isophotes with artificially low pa_err.",
+      "decision": "Add SMA floor + use ratio score. Outermost-surviving fallback for face-on cases (weak=True)."
+    }
+  ],
+
+  "tests": [
+    {"file": "tests/test_catalog.py",   "loc": 87,  "covers": "catalog.load_catalog, auto_discover_catalog, filter_to_existing_image_dirs"},
+    {"file": "tests/test_selection.py", "loc": 125, "covers": "selection.select_isophote (floor, score, weak fallback, face-on collapse)"},
+    {"file": "tests/test_psf.py",       "loc": 230, "covers": "psf.estimate_psf_fwhm, wiener_deconvolve, preprocess_for_fit (auto/on/off, gate, missing R_EFF, PSFEx ext-1)"},
+    {"file": "tests/test_reconcile.py", "loc": 159, "covers": "reconcile.transform_pa_jplus, circular_diff_deg, reconcile join, plot_reconciliation"},
+    {"file": "tests/test_cli.py",       "loc": 44,  "covers": "cli.build_parser smoke tests, --version"}
+  ],
+
+  "scripts": [
+    {"path": "scripts/run_palfitology.sh",       "purpose": "single-node, 40 cores, --all",                                  "kind": "sge"},
+    {"path": "scripts/run_palfitology_slurm.sh", "purpose": "Slurm equivalent (non-CEFCA clusters)",                          "kind": "slurm"},
+    {"path": "scripts/run_palfitology_array.sh", "purpose": "8-task SGE array, -tc 8, --psf-mode auto",                       "kind": "sge-array"},
+    {"path": "scripts/prepare_chunks.sh",        "purpose": "split catalog into cat_part_01..NN.csv",                          "kind": "shell"},
+    {"path": "scripts/merge_and_reconcile.sh",   "purpose": "concat per-task CSVs, run reconcile --plot",                      "kind": "sge"},
+    {"path": "scripts/submit_all.sh",            "purpose": "one-shot driver: chunk -> array -> held reconcile (qsub -hold_jid)", "kind": "shell"},
+    {"path": "scripts/check_pa_flip.py",         "purpose": "diagnostic for direct vs 180-flipped PA agreement",               "kind": "python"}
+  ],
+
+  "external_services": [
+    {"name": "CEFCA hpc-login", "kind": "compute", "purpose": "SGE-scheduled compute for production runs", "node_spec": "40 cores, conda env 'palfitology' Python 3.11"},
+    {"name": "GitHub",          "kind": "scm",     "purpose": "Source hosting", "url": "https://github.com/nisach02/palfitology"},
+    {"name": "J-PLUS archive",  "kind": "data",    "purpose": "Source of FITS cutouts and PSFs (manual download today; v0.5 automates)"}
+  ],
+
+  "open_questions": [
+    {
+      "id": "pa_split",
+      "summary": "~70% of rSDSS rows agree with catalog when flipped (180-pa_jplus); ~30% agree directly.",
+      "evidence": "scripts/check_pa_flip.py on PA_reconciliation.csv across 12 bands. Trend monotonic with depth: 46% in uJAVA, 70% in rSDSS.",
+      "hypotheses": [
+        "Heterogeneous CDELT2 sign across J-PLUS tiles flips y-axis between cutouts (most likely)",
+        "Per-object ambiguity in low-ellipticity galaxies where PA is degenerate",
+        "Catalog convention mixed during ADQL extraction"
+      ],
+      "fix_path": "Add WCS-aware PA conversion in fit.py using each cutout's CD matrix."
+    }
+  ],
+
+  "v0_2_run_results": {
+    "as_of": "2026-05-19",
+    "catalog": "1638518.csv (7900 objects)",
+    "n_rows_total": 242736,
+    "duplicates_dropped_in_merge": 7764,
+    "psf_mode_distribution": {"deconv": 210254, "deconv->raw_fallback": 21489, "raw": 10993},
+    "status_distribution": {"ok": 198501, "imputed": 44235},
+    "status_by_band_imputed_pct": {
+      "uJAVA": 27.8, "J0378": 26.3, "J0395": 24.0, "J0410": 19.9, "J0430": 18.0,
+      "gSDSS": 14.9, "J0515": 15.8, "rSDSS": 12.9, "J0660": 14.1, "iSDSS": 14.5, "J0861": 15.2, "zSDSS": 15.2
+    },
+    "pa_flip_table": {
+      "uJAVA": {"med_direct_deg": 27.6, "med_flipped_deg": 28.4, "flip_wins_pct": 46.4},
+      "J0378": {"med_direct_deg": 29.8, "med_flipped_deg": 26.9, "flip_wins_pct": 49.1},
+      "J0395": {"med_direct_deg": 30.5, "med_flipped_deg": 23.7, "flip_wins_pct": 50.9},
+      "J0410": {"med_direct_deg": 33.1, "med_flipped_deg": 18.7, "flip_wins_pct": 57.4},
+      "J0430": {"med_direct_deg": 34.5, "med_flipped_deg": 15.8, "flip_wins_pct": 59.7},
+      "gSDSS": {"med_direct_deg": 35.8, "med_flipped_deg": 10.6, "flip_wins_pct": 66.0},
+      "J0515": {"med_direct_deg": 35.6, "med_flipped_deg": 12.2, "flip_wins_pct": 64.2},
+      "rSDSS": {"med_direct_deg": 37.5, "med_flipped_deg": 7.8,  "flip_wins_pct": 70.4},
+      "J0660": {"med_direct_deg": 36.7, "med_flipped_deg": 9.6,  "flip_wins_pct": 67.2},
+      "iSDSS": {"med_direct_deg": 35.5, "med_flipped_deg": 8.2,  "flip_wins_pct": 68.4},
+      "J0861": {"med_direct_deg": 34.9, "med_flipped_deg": 10.4, "flip_wins_pct": 65.5},
+      "zSDSS": {"med_direct_deg": 34.5, "med_flipped_deg": 9.2,  "flip_wins_pct": 66.6}
+    }
+  },
+
+  "roadmap": [
+    {"version": "v0.1", "feature": "Refactor V7 monolith into package + CLI",            "status": "shipped"},
+    {"version": "v0.2", "feature": "PSF-aware fitting (Wiener deconv + auto gate)",       "status": "implemented; cluster-validated; pending PA-split decision"},
+    {"version": "v0.3", "feature": "Cross-band PA consensus + outlier flagging",           "status": "planned"},
+    {"version": "v0.4", "feature": "GALFIT priors writer",                                 "status": "planned"},
+    {"version": "v0.5", "feature": "Download integration (AutomatedImageDownloadsV2 port)","status": "planned"}
+  ],
+
+  "theme": {
+    "name": "Claude",
+    "bg": "#F5F4EE", "surface": "#FFFFFF", "warm": "#E8E6DC", "rule": "#E1DFD5",
+    "text": "#1F1E1B", "text_2": "#5A5854", "text_3": "#8A8881",
+    "ember": "#D97757", "clay": "#C96442",
+    "code_bg": "#26241D", "code_fg": "#F5F4EE",
+    "groups": {
+      "ingest":      "#D97757",
+      "psf":         "#C96442",
+      "fit":         "#D97757",
+      "orchestrate": "#C96442",
+      "output":      "#A87850",
+      "interface":   "#C96442",
+      "future":      "#8A8881"
+    }
+  }
+}
+</script>
+
+<script>
+const ARCH = JSON.parse(document.getElementById('arch-data').textContent);
+
+// ============================================================
+// Hero
+// ============================================================
+document.getElementById('brand-meta').textContent = 'v' + ARCH.meta.version + ' · ' + ARCH.meta.branch;
+document.getElementById('overview-eyebrow').textContent = ARCH.meta.package + ' · system handbook';
+document.getElementById('overview-title').innerHTML =
+  'PSF-aware position-angle fitting <em>for J-PLUS galaxy morphology.</em>';
+document.getElementById('overview-tag').textContent = ARCH.meta.tagline;
+
+const meta = ARCH.meta;
+document.getElementById('overview-meta').innerHTML = [
+  `<span><b>${meta.loc_total.toLocaleString()}</b> LOC</span>`,
+  `<span><b>${meta.test_count}</b> tests</span>`,
+  `<span><b>${meta.loc_tests}</b> LOC tests</span>`,
+  `<span><b>${meta.loc_scripts}</b> LOC scripts</span>`,
+  `<span>license: <b>${meta.license}</b></span>`,
+  `<span>generated: <b>${meta.generated_at}</b></span>`,
+].join('');
+document.getElementById('footer-version').textContent =
+  'v' + meta.version + ' · ' + meta.loc_total + ' LOC · ' + meta.test_count + ' tests';
+
+const liveModules = ARCH.components.filter(c => c.kind !== 'stub').length;
+const stubs       = ARCH.components.filter(c => c.kind === 'stub').length;
+document.getElementById('stats-grid').innerHTML = [
+  { v: ARCH.constants.ALL_BANDS.length, l: 'J-PLUS bands' },
+  { v: liveModules,                     l: 'live modules' },
+  { v: stubs,                           l: 'planned modules' },
+  { v: ARCH.adrs.length,                l: 'architecture decisions' },
+].map(s => `<div class="stat"><span class="v">${s.v}</span><span class="l">${s.l}</span></div>`).join('');
+
+// ============================================================
+// Navigation: scroll spy
+// ============================================================
+const navItems = Array.from(document.querySelectorAll('.nav-item'));
+navItems.forEach(it => it.addEventListener('click', () => {
+  const id = it.dataset.target;
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
+const sections = navItems.map(n => document.getElementById(n.dataset.target));
+const spy = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    navItems.forEach(n => n.classList.toggle('active', n.dataset.target === e.target.id));
+  });
+}, { rootMargin: '-25% 0px -65% 0px' });
+sections.forEach(s => spy.observe(s));
+
+// ============================================================
+// Architecture diagram (grid-aligned)
+// ============================================================
+const NODE_W = 200, NODE_H = 80;
+const POS = {
+  catalog:   { x:  72, y:  72, group: 'ingest' },
+  images:    { x:  72, y: 180, group: 'ingest' },
+  psf:       { x: 360, y: 126, group: 'transform' },
+  selection: { x: 640, y:  72, group: 'transform' },
+  fit:       { x: 640, y: 180, group: 'transform' },
+  consensus: { x: 920, y:  72, group: 'future' },
+  galfit:    { x: 920, y: 180, group: 'future' },
+  pipeline:  { x: 360, y: 340, group: 'orchestrate' },
+  plots:     { x: 640, y: 340, group: 'output' },
+  reconcile: { x: 920, y: 340, group: 'output' },
+  cli:       { x: 360, y: 500, group: 'interface' },
+  package:   { x: 640, y: 500, group: 'interface' },
+  download:  { x: 920, y: 500, group: 'future' },
+};
+const byId = Object.fromEntries(ARCH.components.map(c => [c.id, c]));
+const svg = document.getElementById('diagram');
+const NS = 'http://www.w3.org/2000/svg';
+
+const defs = document.createElementNS(NS, 'defs');
+defs.innerHTML = `
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0 0 L10 5 L0 10 z" class="edge-arrow"/>
+  </marker>
+`;
+svg.appendChild(defs);
+
+// Group backplates (computed from node bounds within each group)
+const groupBounds = {};
+Object.entries(POS).forEach(([id, p]) => {
+  if (!groupBounds[p.group]) groupBounds[p.group] = { x1: 1e9, y1: 1e9, x2: -1e9, y2: -1e9 };
+  const gb = groupBounds[p.group];
+  gb.x1 = Math.min(gb.x1, p.x);
+  gb.y1 = Math.min(gb.y1, p.y);
+  gb.x2 = Math.max(gb.x2, p.x + NODE_W);
+  gb.y2 = Math.max(gb.y2, p.y + NODE_H);
+});
+const groupLayer = document.createElementNS(NS, 'g');
+Object.entries(groupBounds).forEach(([g, b]) => {
+  const pad = 16;
+  const r = document.createElementNS(NS, 'rect');
+  r.setAttribute('x', b.x1 - pad);
+  r.setAttribute('y', b.y1 - pad - 14);
+  r.setAttribute('width',  b.x2 - b.x1 + 2*pad);
+  r.setAttribute('height', b.y2 - b.y1 + 2*pad + 14);
+  r.setAttribute('rx', 8);
+  r.setAttribute('class', 'group-bg');
+  groupLayer.appendChild(r);
+
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('x', b.x1 - pad + 10);
+  t.setAttribute('y', b.y1 - pad - 4);
+  t.setAttribute('class', 'group-label');
+  t.textContent = g;
+  groupLayer.appendChild(t);
+});
+svg.appendChild(groupLayer);
+
+// Edges
+const edgeLayer = document.createElementNS(NS, 'g');
+const edges = [];
+ARCH.dependency_edges.forEach(e => {
+  if (!POS[e.from] || !POS[e.to]) return;
+  const A = { cx: POS[e.from].x + NODE_W/2, cy: POS[e.from].y + NODE_H/2 };
+  const B = { cx: POS[e.to].x   + NODE_W/2, cy: POS[e.to].y   + NODE_H/2 };
+  const dx = (B.cx - A.cx) * 0.45;
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('d', `M ${A.cx},${A.cy} C ${A.cx + dx},${A.cy} ${B.cx - dx},${B.cy} ${B.cx},${B.cy}`);
+  p.setAttribute('class', 'edge-line');
+  p.setAttribute('marker-end', 'url(#arr)');
+  p.dataset.from = e.from; p.dataset.to = e.to;
+  edgeLayer.appendChild(p);
+  edges.push(p);
+});
+svg.appendChild(edgeLayer);
+
+// Nodes
+const nodeLayer = document.createElementNS(NS, 'g');
+Object.entries(POS).forEach(([id, p]) => {
+  const c = byId[id]; if (!c) return;
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('transform', `translate(${p.x},${p.y})`);
+  g.dataset.id = id;
+
+  const rect = document.createElementNS(NS, 'rect');
+  rect.setAttribute('width', NODE_W); rect.setAttribute('height', NODE_H);
+  rect.setAttribute('rx', 5);
+  rect.setAttribute('class', 'node-rect' + (c.kind === 'stub' ? ' stub' : ''));
+  g.appendChild(rect);
+
+  // Top corner: id badge
+  const idTxt = document.createElementNS(NS, 'text');
+  idTxt.setAttribute('x', 16); idTxt.setAttribute('y', 22);
+  idTxt.setAttribute('class', 'node-id');
+  idTxt.textContent = c.id.toUpperCase();
+  g.appendChild(idTxt);
+
+  // Right corner: kind tag
+  const kTxt = document.createElementNS(NS, 'text');
+  kTxt.setAttribute('x', NODE_W - 16); kTxt.setAttribute('y', 22);
+  kTxt.setAttribute('class', 'node-id');
+  kTxt.setAttribute('text-anchor', 'end');
+  kTxt.setAttribute('fill', 'var(--fg-3)');
+  kTxt.textContent = c.kind;
+  g.appendChild(kTxt);
+
+  // Name
+  const nTxt = document.createElementNS(NS, 'text');
+  nTxt.setAttribute('x', 16); nTxt.setAttribute('y', 46);
+  nTxt.setAttribute('class', 'node-name');
+  nTxt.textContent = c.name;
+  g.appendChild(nTxt);
+
+  // Module + LOC
+  const mTxt = document.createElementNS(NS, 'text');
+  mTxt.setAttribute('x', 16); mTxt.setAttribute('y', 66);
+  mTxt.setAttribute('class', 'node-loc');
+  mTxt.textContent = c.module + '  ·  ' + c.loc + ' LOC';
+  g.appendChild(mTxt);
+
+  g.addEventListener('click', (e) => { e.stopPropagation(); openDrawer(id); });
+  g.addEventListener('mouseenter', () => highlightNeighbours(id, true));
+  g.addEventListener('mouseleave', () => highlightNeighbours(id, false));
+  nodeLayer.appendChild(g);
+});
+svg.appendChild(nodeLayer);
+
+function highlightNeighbours(id, on) {
+  edges.forEach(p => {
+    const touches = p.dataset.from === id || p.dataset.to === id;
+    p.classList.toggle('hot', on && touches);
+    p.classList.toggle('dim', on && !touches);
+  });
+}
+
+// Pan + zoom
+const host = document.getElementById('diagram-host');
+let vb = { x: 0, y: 0, w: 1200, h: 700 };
+function applyVb() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+applyVb();
+
+host.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = host.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / rect.width;
+  const py = (e.clientY - rect.top) / rect.height;
+  const scale = e.deltaY > 0 ? 1.12 : 1/1.12;
+  const newW = Math.max(360, Math.min(2800, vb.w * scale));
+  const newH = newW * (vb.h / vb.w);
+  vb.x += (vb.w - newW) * px;
+  vb.y += (vb.h - newH) * py;
+  vb.w = newW; vb.h = newH;
+  applyVb();
+}, { passive: false });
+
+let drag = null;
+host.addEventListener('mousedown', (e) => {
+  drag = { sx: e.clientX, sy: e.clientY, vbx: vb.x, vby: vb.y };
+  host.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', (e) => {
+  if (!drag) return;
+  const rect = host.getBoundingClientRect();
+  vb.x = drag.vbx - (e.clientX - drag.sx) * (vb.w / rect.width);
+  vb.y = drag.vby - (e.clientY - drag.sy) * (vb.h / rect.height);
+  applyVb();
+});
+window.addEventListener('mouseup', () => { drag = null; host.style.cursor = 'grab'; });
+
+document.getElementById('z-in').onclick    = () => { vb.w *= 1/1.2; vb.h *= 1/1.2; applyVb(); };
+document.getElementById('z-out').onclick   = () => { vb.w *= 1.2;   vb.h *= 1.2;   applyVb(); };
+document.getElementById('z-reset').onclick = () => { vb = { x: 0, y: 0, w: 1200, h: 700 }; applyVb(); };
+
+// ============================================================
+// File tree (from filesystem and components)
+// ============================================================
+const tree = document.getElementById('file-tree');
+const treeRows = [
+  { p: 'src/palfitology/',              n: 'package root, ' + ARCH.components.filter(c => c.path.startsWith('src/')).reduce((a, c) => a + c.loc, 0) + ' LOC' },
+  ...ARCH.components.map(c => ({ p: '  └ ' + c.path.replace('src/palfitology/', ''), n: c.module + ' · ' + c.loc + ' LOC' })),
+  { p: 'tests/',                        n: ARCH.tests.reduce((a, t) => a + t.loc, 0) + ' LOC' },
+  ...ARCH.tests.map(t => ({ p: '  └ ' + t.file.replace('tests/', ''), n: t.loc + ' LOC' })),
+  { p: 'scripts/',                      n: ARCH.scripts.length + ' scripts' },
+  ...ARCH.scripts.map(s => ({ p: '  └ ' + s.path.replace('scripts/', ''), n: s.purpose })),
+  { p: 'docs/',                         n: 'architecture.json + architecture.html (this) + pptx' },
+  { p: 'pyproject.toml',                n: 'package metadata, version ' + ARCH.meta.version },
+];
+tree.innerHTML = treeRows.map(r => `
+  <div class="row">
+    <span class="pth">${r.p.replace(/^(\s*└\s)?(.*)/, (m, lead, rest) => (lead || '') + `<span class="accent">${rest}</span>`)}</span>
+    <span class="note">${r.n}</span>
+  </div>
+`).join('');
+
+// ============================================================
+// Drawer
+// ============================================================
+function openDrawer(id) {
+  const c = byId[id]; if (!c) return;
+  document.querySelectorAll('.node-rect.active').forEach(n => n.classList.remove('active'));
+  const node = nodeLayer.querySelector(`g[data-id="${id}"] rect`);
+  if (node) node.classList.add('active');
+
+  document.getElementById('drawer-ic').textContent = c.id.charAt(0).toUpperCase();
+  document.getElementById('drawer-sub').textContent = c.module + ' · ' + c.kind + ' · ' + c.loc + ' LOC';
+  document.getElementById('drawer-title').textContent = c.name;
+
+  const chip = (txt, opts = {}) => `<span class="chip ${opts.linked ? 'linked' : ''} ${opts.gold ? 'gold' : ''}" ${opts.click ? `onclick="${opts.click}"` : ''}>${txt}</span>`;
+  const tests = ARCH.tests.filter(t => t.covers.toLowerCase().includes(id) || t.covers.toLowerCase().includes(c.module.split('.').pop()));
+
+  document.getElementById('drawer-body').innerHTML = `
+    <div class="field">
+      <h4>file</h4>
+      <code style="font-size: 12.5px;">${c.path}</code>
+    </div>
+
+    <div class="field">
+      <h4>public symbols</h4>
+      ${(c.public_symbols||[]).map(s => chip(s, { gold: true })).join('') || '<span style="color: var(--fg-3);">— (stub) —</span>'}
+    </div>
+
+    <div class="field">
+      <h4>depends on</h4>
+      ${(c.depends_on||[]).length ? c.depends_on.map(d => chip(d, { linked: true, click: `openDrawer('${d}')` })).join('') : '<span style="color: var(--fg-3);">— none —</span>'}
+    </div>
+
+    <div class="field">
+      <h4>depended on by</h4>
+      ${(c.depended_on_by||[]).length ? c.depended_on_by.map(d => chip(d, { linked: true, click: `openDrawer('${d}')` })).join('') : '<span style="color: var(--fg-3);">— none —</span>'}
+    </div>
+
+    <div class="field">
+      <h4>external deps</h4>
+      ${(c.external_deps||[]).map(d => chip(d)).join('') || '<span style="color: var(--fg-3);">— none —</span>'}
+    </div>
+
+    <div class="field">
+      <h4>notes</h4>
+      <p style="margin: 0; color: var(--fg-1); font-size: 13px; line-height: 1.65;">${c.notes || ''}</p>
+    </div>
+
+    ${tests.length ? `
+    <div class="field">
+      <h4>tests</h4>
+      ${tests.map(t => `<div style="font-size: 12px; color: var(--fg-1);"><span style="color: var(--gold);">${t.file}</span> <span style="color: var(--fg-3);">— ${t.loc} LOC</span></div>`).join('')}
+    </div>` : ''}
+
+    ${c.planned_version ? `
+    <div class="field" style="background: var(--bg-2); border: 1px solid var(--line); padding: 12px 14px; border-radius: 4px;">
+      <h4 style="color: var(--gold); margin-bottom: 4px;">planned</h4>
+      <div style="font-size: 12.5px; color: var(--fg-1);">First scheduled in <strong style="color: var(--gold);">${c.planned_version}</strong></div>
+    </div>` : ''}
+  `;
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.querySelectorAll('.node-rect.active').forEach(n => n.classList.remove('active'));
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawer(); document.getElementById('palette-wrap').classList.remove('open'); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    openPalette();
+  }
+});
+
+// ============================================================
+// Data flows
+// ============================================================
+document.getElementById('flows-host').innerHTML = ARCH.data_flows.map(f => `
+  <div class="card">
+    <div class="card-head"><span class="dot"></span>${f.id} · ${f.label}</div>
+    <div class="card-body" style="padding: 6px 18px;">
+      ${f.edges.map(e => `
+        <div class="flow-row">
+          <span class="from">${e.from}</span>
+          <span class="arr">→</span>
+          <span class="to">${e.to}</span>
+          <span class="via">${e.via}</span>
+          <span class="carries">${e.carries || ''}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+`).join('');
+
+// ============================================================
+// CLI
+// ============================================================
+const cliRows = [
+  { name: 'fit-pa',    purpose: 'Per-band isophotal PA fit + diagnostics for every (object, band).',
+    status: 'working', flags: ['--catalog', '--images-root', '--output-dir', '--bands', '--workers', '--psf-mode', '--psf-gate', '--limit', '--min-sma-abs', '--min-sma-frac', '--keep-best-of'] },
+  { name: 'reconcile', purpose: 'Build the wide PA reconciliation table and optional scatter plots.',
+    status: 'working', flags: ['--fitted-dir', '--catalog', '--output', '--bands', '--plot'] },
+  { name: 'download',  purpose: 'Fetch J-PLUS cutouts and PSFs.',                  status: 'planned', flags: [] },
+  { name: 'consensus', purpose: 'Cross-band PA consensus + outlier flagging.',     status: 'planned', flags: [] },
+  { name: 'galfit',    purpose: 'Emit GALFIT input files from fitted PAs.',        status: 'planned', flags: [] },
+];
+document.querySelector('#cli-table tbody').innerHTML = cliRows.map(c => `
+  <tr>
+    <td><code style="color: var(--gold);">palfitology ${c.name}</code></td>
+    <td style="color: var(--fg-1);">${c.purpose}</td>
+    <td><span class="chip ${c.status === 'working' ? 'gold' : ''}">${c.status}</span></td>
+    <td>${c.flags.map(f => `<span class="chip">${f}</span>`).join('')}</td>
+  </tr>`).join('');
+
+document.querySelector('#api-table tbody').innerHTML = ARCH.entry_points.python_api.map(a => `
+  <tr>
+    <td><code style="color: var(--gold);">${a.symbol}</code></td>
+    <td style="color: var(--fg-2); font-size: 11px;">${a.kind}</td>
+    <td style="color: var(--fg-1);"><code style="color: var(--fg-1);">${a.module}</code></td>
+  </tr>`).join('');
+
+document.getElementById('invocations').innerHTML = ARCH.entry_points.cli_invocations.map(inv => {
+  const colored = inv
+    .replace(/(--[a-zA-Z0-9-]+)/g, '<span class="tok-flag">$1</span>')
+    .replace(/^(palfitology)/, '<span class="tok-fn">$1</span>');
+  return `<pre class="code"><span class="tok-prompt">$</span> ${colored}</pre>`;
+}).join('');
+
+// ============================================================
+// Schemas
+// ============================================================
+const schHost = document.getElementById('schemas-host');
+Object.entries(ARCH.csv_schemas).forEach(([fname, sch]) => {
+  schHost.insertAdjacentHTML('beforeend', `
+    <div class="card">
+      <div class="card-head"><span class="dot"></span>${fname} · ${sch.rows_per}${sch.row_count_example ? ' · example ' + sch.row_count_example.toLocaleString() + ' rows' : ''}</div>
+      <table>
+        <thead><tr><th>column</th><th>type</th><th>description</th></tr></thead>
+        <tbody>
+          ${sch.columns.map(c => `
+            <tr>
+              <td><code>${c.name}</code></td>
+              <td><span class="type">${c.type}</span></td>
+              <td style="color: var(--fg-1);">${c.desc || ''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `);
+});
+
+// ============================================================
+// Filesystem
+// ============================================================
+function fillTreeKV(elId, obj) {
+  document.getElementById(elId).innerHTML = Object.entries(obj).map(([k, v]) => `
+    <div class="row">
+      <span class="pth"><span class="accent">${k}</span></span>
+      <span class="note">${v}</span>
+    </div>
+  `).join('');
+}
+fillTreeKV('fs-in',  ARCH.filesystem.input_layout);
+fillTreeKV('fs-out', ARCH.filesystem.output_layout);
+
+// ============================================================
+// Run results
+// ============================================================
+const R = ARCH.v0_2_run_results;
+const okShare = 100 * R.status_distribution.ok / (R.status_distribution.ok + R.status_distribution.imputed);
+const deconvShare = 100 * (R.psf_mode_distribution.deconv + R.psf_mode_distribution['deconv->raw_fallback']) /
+                     (R.psf_mode_distribution.deconv + R.psf_mode_distribution['deconv->raw_fallback'] + R.psf_mode_distribution.raw);
+
+document.getElementById('results-lede').textContent =
+  'Catalog: ' + R.catalog + '. ' + R.n_rows_total.toLocaleString() +
+  ' (id, band) rows produced. ' + R.duplicates_dropped_in_merge.toLocaleString() +
+  ' duplicates dropped during the 8-task array merge.';
+
+document.getElementById('results-stats').innerHTML = [
+  { v: '7,900',                                l: 'objects fitted' },
+  { v: R.n_rows_total.toLocaleString(),         l: '(id, band) rows' },
+  { v: okShare.toFixed(1) + '%',                l: 'rows status = ok' },
+  { v: deconvShare.toFixed(1) + '%',            l: 'rows deconvolved' },
+].map(s => `<div class="stat"><span class="v">${s.v}</span><span class="l">${s.l}</span></div>`).join('');
+
+function renderBars(hostId, obj) {
+  const total = Object.values(obj).reduce((a, b) => a + b, 0);
+  const host = document.getElementById(hostId);
+  host.innerHTML = Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
+    const pct = v / total * 100;
+    return `
+      <div class="bar-row">
+        <div class="bar-meta">
+          <span class="k">${k}</span>
+          <span class="v">${v.toLocaleString()} · ${pct.toFixed(1)}%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width: ${pct}%;"></div></div>
+      </div>`;
+  }).join('');
+}
+renderBars('psf-mode-bars', R.psf_mode_distribution);
+renderBars('status-bars',   R.status_distribution);
+
+document.getElementById('flip-tbody').innerHTML = ARCH.constants.ALL_BANDS.map(b => {
+  const row = R.pa_flip_table[b]; if (!row) return '';
+  const wins = row.flip_wins_pct;
+  const color = wins >= 65 ? 'var(--gold)' : (wins >= 55 ? 'var(--hot)' : 'var(--fg-2)');
+  return `
+    <tr>
+      <td><code>${b}</code></td>
+      <td style="color: var(--fg-2); font-variant-numeric: tabular-nums;">~6200</td>
+      <td style="color: var(--fg-2); font-variant-numeric: tabular-nums;">${row.med_direct_deg.toFixed(1)}°</td>
+      <td style="color: var(--gold); font-variant-numeric: tabular-nums;"><strong>${row.med_flipped_deg.toFixed(1)}°</strong></td>
+      <td>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="flex: 1; max-width: 120px; height: 3px; background: var(--bg-3); position: relative;">
+            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${wins}%; background: ${color};"></div>
+          </div>
+          <span style="color: ${color}; font-variant-numeric: tabular-nums;"><strong>${wins.toFixed(1)}%</strong></span>
+        </div>
+      </td>
+    </tr>`;
+}).join('');
+
+// ============================================================
+// Ops
+// ============================================================
+document.querySelector('#scripts-table tbody').innerHTML = ARCH.scripts.map(s => `
+  <tr>
+    <td><code>${s.path}</code></td>
+    <td style="color: var(--fg-1);">${s.purpose}</td>
+    <td><span class="chip">${s.kind}</span></td>
+  </tr>`).join('');
+
+document.getElementById('gotchas-list').innerHTML = ARCH.constraints
+  .filter(c => c.category === 'cluster' || c.category === 'git')
+  .map(c => `<li style="margin-bottom: 10px;">${c.rule}</li>`)
+  .join('');
+
+// ============================================================
+// Conventions & constraints
+// ============================================================
+document.getElementById('conv-list').innerHTML = ARCH.conventions.map(c => `
+  <div class="conv">
+    <div class="id">${c.id}</div>
+    <div class="body">${c.rule}</div>
+  </div>`).join('');
+
+document.getElementById('con-list').innerHTML = ARCH.constraints.map(c => `
+  <div class="rule">
+    <div class="cat">${c.category}</div>
+    <div class="body">${c.rule}</div>
+  </div>`).join('');
+
+// ============================================================
+// ADRs
+// ============================================================
+document.getElementById('adrs-host').innerHTML = ARCH.adrs.map(a => `
+  <div class="adr">
+    <div class="meta">
+      <div class="id">${a.id}</div>
+      <span class="status ${a.status}">${a.status}</span>
+    </div>
+    <div>
+      <div class="title">${a.title}</div>
+      <div class="pair">
+        <div>
+          <h5>context</h5>
+          <p>${a.context}</p>
+        </div>
+        <div>
+          <h5>decision</h5>
+          <p><strong>${a.decision}</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>`).join('');
+
+// ============================================================
+// Open questions
+// ============================================================
+document.getElementById('oq-host').innerHTML = ARCH.open_questions.map(q => `
+  <div>
+    <div style="font: 600 11px var(--mono); color: var(--gold); letter-spacing: 0.08em; margin-bottom: 6px;">${q.id}</div>
+    <div style="font-family: var(--serif); font-size: 19px; font-weight: 600; margin-bottom: 12px; line-height: 1.3;">${q.summary}</div>
+    <p style="color: var(--fg-1); font-size: 12.5px; margin: 0 0 12px;"><strong style="color: var(--fg-0);">Evidence.</strong> ${q.evidence}</p>
+    <p style="color: var(--fg-1); font-size: 12.5px; margin: 0 0 6px;"><strong style="color: var(--fg-0);">Hypotheses:</strong></p>
+    <ul style="margin: 0 0 12px 18px; color: var(--fg-1); font-size: 12.5px;">
+      ${q.hypotheses.map(h => `<li style="margin-bottom: 4px;">${h}</li>`).join('')}
+    </ul>
+    <p style="color: var(--gold); font-size: 12.5px; margin: 0;"><strong>Fix path:</strong> ${q.fix_path}</p>
+  </div>`).join('');
+
+// ============================================================
+// Roadmap
+// ============================================================
+document.getElementById('roadmap-host').innerHTML = ARCH.roadmap.map(r => {
+  const done = r.status === 'shipped' || r.status.startsWith('implemented');
+  return `
+    <div class="road ${done ? 'done' : ''}">
+      <div class="v">${r.version}</div>
+      <div class="f">${r.feature}</div>
+      <div class="s">${r.status}</div>
+    </div>`;
+}).join('');
+
+document.querySelector('#tests-table tbody').innerHTML = ARCH.tests.map(t => `
+  <tr>
+    <td><code>${t.file}</code></td>
+    <td><span class="type">${t.loc}</span></td>
+    <td style="color: var(--fg-1);">${t.covers}</td>
+  </tr>`).join('');
+
+// ============================================================
+// Command palette
+// ============================================================
+const palette = [];
+ARCH.components.forEach(c => {
+  palette.push({ kind: 'module', label: c.name, hint: c.module, action: () => { openDrawer(c.id); document.getElementById('architecture').scrollIntoView({ behavior: 'smooth' }); } });
+  (c.public_symbols || []).forEach(s => palette.push({ kind: 'symbol', label: s, hint: c.module, action: () => openDrawer(c.id) }));
+});
+ARCH.adrs.forEach(a => palette.push({ kind: 'adr', label: a.title, hint: a.id, action: () => document.getElementById('adrs').scrollIntoView({ behavior: 'smooth' }) }));
+ARCH.scripts.forEach(s => palette.push({ kind: 'script', label: s.path, hint: s.purpose, action: () => document.getElementById('ops').scrollIntoView({ behavior: 'smooth' }) }));
+ARCH.constraints.forEach(c => palette.push({ kind: 'rule', label: c.rule.slice(0, 80) + (c.rule.length > 80 ? '…' : ''), hint: c.category, action: () => document.getElementById('constraints').scrollIntoView({ behavior: 'smooth' }) }));
+
+const palWrap   = document.getElementById('palette-wrap');
+const palInput  = document.getElementById('pal-input');
+const palResults = document.getElementById('pal-results');
+let palSelIdx = 0;
+
+function renderPalette(q) {
+  q = q.toLowerCase().trim();
+  const hits = q
+    ? palette.filter(p => p.label.toLowerCase().includes(q) || (p.hint||'').toLowerCase().includes(q))
+    : palette.slice(0, 20);
+  palResults.innerHTML = hits.slice(0, 30).map((p, i) => `
+    <div class="pal-item ${i === palSelIdx ? 'sel' : ''}" data-idx="${i}">
+      <span class="kind">${p.kind}</span>
+      <span class="lbl">${p.label}</span>
+      <span class="hint">${p.hint || ''}</span>
+    </div>`).join('');
+  palResults.querySelectorAll('.pal-item').forEach((el, i) => {
+    el.addEventListener('click', () => { hits[i].action(); closePalette(); });
+  });
+}
+function openPalette() { palWrap.classList.add('open'); palInput.value = ''; palSelIdx = 0; renderPalette(''); palInput.focus(); }
+function closePalette() { palWrap.classList.remove('open'); }
+palWrap.addEventListener('click', (e) => { if (e.target === palWrap) closePalette(); });
+palInput.addEventListener('input', (e) => { palSelIdx = 0; renderPalette(e.target.value); });
+palInput.addEventListener('keydown', (e) => {
+  const items = palResults.querySelectorAll('.pal-item');
+  if (e.key === 'ArrowDown') { palSelIdx = Math.min(items.length - 1, palSelIdx + 1); renderPalette(palInput.value); e.preventDefault(); }
+  if (e.key === 'ArrowUp')   { palSelIdx = Math.max(0, palSelIdx - 1);                renderPalette(palInput.value); e.preventDefault(); }
+  if (e.key === 'Enter') {
+    const sel = palResults.querySelectorAll('.pal-item')[palSelIdx];
+    if (sel) sel.click();
+  }
+});
+</script>
+</body>
+</html>
