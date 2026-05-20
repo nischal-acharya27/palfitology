@@ -33,6 +33,7 @@ for _var in (
     os.environ.setdefault(_var, "1")
 
 from . import ALL_BANDS, __version__  # noqa: E402 -- after BLAS pin
+from .detect import DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA  # noqa: E402
 from .catalog import (  # noqa: E402
     auto_discover_catalog,
     filter_to_existing_image_dirs,
@@ -89,6 +90,17 @@ def _add_fit_pa_subparser(subparsers: argparse._SubParsersAction) -> None:
                        "Threshold ratio (PSF FWHM / R_EFF) above which the "
                        "auto mode deconvolves (default: 0.2). Lower = more "
                        "aggressive deconvolution."
+                   ))
+    p.add_argument("--detect-sigma", type=float, default=DEFAULT_DETECT_SIGMA,
+                   help=(
+                       f"Sigma threshold for source detection in the detect-band image "
+                       f"(default: {DEFAULT_DETECT_SIGMA}). Set to 0 to disable detection "
+                       f"and revert to catalog-prior seeding (v0.3 behaviour)."
+                   ))
+    p.add_argument("--detect-band", type=str, default=DEFAULT_DETECT_BAND,
+                   help=(
+                       f"Band used as the detection master image (default: {DEFAULT_DETECT_BAND}). "
+                       f"Its sigma-clipped mask seeds the ellipse geometry for all bands."
                    ))
     p.add_argument("--debug", action="store_true",
                    help="Verbose per-attempt logging.")
@@ -154,6 +166,8 @@ def _cmd_fit_pa(args: argparse.Namespace) -> int:
         make_summary=not args.no_summary,
         psf_mode=args.psf_mode,
         psf_gate=args.psf_gate,
+        detect_sigma=args.detect_sigma,
+        detect_band=args.detect_band,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

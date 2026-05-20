@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+from .detect import DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA, DetectionResult, detect_source
 from .fit import FitCandidate, fit_pa_with_fallbacks
 from .images import locate_band_fits, locate_band_psf
 from .plots import make_band_plot, make_summary_mosaic
@@ -42,6 +43,8 @@ RESULT_COLUMNS = [
     "pa_err", "selection_score", "fit_config", "smoothing_sigma",
     "used_weak_fallback", "n_configs_tried", "is_imputed", "status",
     "psf_mode", "psf_fwhm_pixels",
+    # V0.4 detection columns (populated from the r-band detection pass)
+    "detect_status", "detect_npix", "detect_sigma",
 ]
 
 
@@ -60,6 +63,7 @@ def _missing_row(objectid: str, band: str, eps_prior: float, pa_prior: float,
         "used_weak_fallback": 0, "n_configs_tried": 0,
         "is_imputed": 0, "status": status,
         "psf_mode": "none", "psf_fwhm_pixels": np.nan,
+        "detect_status": "unknown", "detect_npix": 0, "detect_sigma": np.nan,
     }
 
 
@@ -80,6 +84,16 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
          ``psf_mode`` in the CSV reflects what was actually used:
          ``raw``, ``deconv``, ``deconv->raw_fallback``, ``missing_psf``, or
          ``off``.
+
+    Detection flow (v0.4+):
+      The task dict may carry ``detect_result``: a ``DetectionResult`` computed
+      from the r-band (or whichever ``detect_band``) image **before** this
+      worker was dispatched.  When present and status=='ok', its moment-derived
+      ``pa_deg`` and ``eps`` override the catalog priors fed into
+      ``fit_pa_with_fallbacks``.  The catalog priors are still included as
+      fallback configs inside the ladder, so we never lose that information.
+      When ``detect_result`` is absent or 'no_detection', behaviour is
+      identical to v0.3.
     """
     objectid = task["objectid"]
     band = task["band"]
@@ -93,6 +107,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
     psf_mode = task.get("psf_mode", "auto")
     psf_gate = task.get("psf_gate", DEFAULT_PSF_GATE)
     r_eff_pixels = task.get("r_eff_pixels", float("nan"))
+    detect_result: Optional[DetectionResult] = task.get("detect_result", None)
 
     obj_out_dir = output_dir / objectid
     obj_out_dir.mkdir(parents=True, exist_ok=True)
@@ -129,10 +144,44 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
     final_psf_mode = psf_info.mode
     psf_fwhm = psf_info.psf_fwhm_pixels
 
+    # ------------------------------------------------------------------
+    # Detection-seeded priors (V0.4)
+    # ------------------------------------------------------------------
+    # If the r-band (or configured detect-band) detection succeeded, use its
+    # moment-derived PA and eps as the leading prior instead of the catalog
+    # values.  The catalog priors are still tried inside the fallback ladder
+    # (as config "catalog_prior"), so no information is discarded.
+    detect_status = "skipped"
+    detect_npix = 0
+    detect_sigma_val = float("nan")
+    if detect_result is not None:
+        detect_status = detect_result.status
+        detect_npix = detect_result.npix
+        detect_sigma_val = detect_result.sigma_threshold
+        if detect_result.status == "ok":
+            # Override the priors with moment-based values for this band's fit.
+            fit_pa_prior = detect_result.pa_deg
+            fit_eps_prior = detect_result.eps
+            logger.debug(
+                f"[{objectid}/{band}] detection ok: "
+                f"seeding fit with pa={fit_pa_prior:.1f}° eps={fit_eps_prior:.3f} "
+                f"(catalog was pa={pa_prior:.1f}° eps={eps_prior:.3f})"
+            )
+        else:
+            fit_pa_prior = pa_prior
+            fit_eps_prior = eps_prior
+            logger.debug(
+                f"[{objectid}/{band}] detection {detect_result.status}: "
+                f"falling back to catalog priors"
+            )
+    else:
+        fit_pa_prior = pa_prior
+        fit_eps_prior = eps_prior
+
     cand, n_tried = fit_pa_with_fallbacks(
         data=fit_image,
-        eps_prior=eps_prior,
-        pa_prior=pa_prior,
+        eps_prior=fit_eps_prior,
+        pa_prior=fit_pa_prior,
         min_sma_abs=min_sma_abs,
         min_sma_frac=min_sma_frac,
         keep_best_of=keep_best_of,
@@ -202,6 +251,9 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
             "n_configs_tried": n_tried,
             "is_imputed": 0, "status": status,
             "psf_mode": final_psf_mode, "psf_fwhm_pixels": psf_fwhm,
+            "detect_status": detect_status,
+            "detect_npix": detect_npix,
+            "detect_sigma": detect_sigma_val,
         }
     y_shape, x_shape = data.shape
     return {
@@ -218,6 +270,9 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
         "used_weak_fallback": 0, "n_configs_tried": n_tried,
         "is_imputed": 1, "status": status,
         "psf_mode": final_psf_mode, "psf_fwhm_pixels": psf_fwhm,
+        "detect_status": detect_status,
+        "detect_npix": detect_npix,
+        "detect_sigma": detect_sigma_val,
     }
 
 
@@ -303,6 +358,36 @@ def _render_object_summary(
 # Top-level driver
 # ---------------------------------------------------------------------------
 
+def _run_detection_for_object(
+    objectid: str,
+    images_root: Path,
+    detect_band: str,
+    detect_sigma: float,
+) -> Optional[DetectionResult]:
+    """Open the detect-band cutout for one object and run sigma-clip detection.
+
+    Returns None if the cutout cannot be opened (missing file, I/O error).
+    A ``DetectionResult`` with status='no_detection' is still returned when the
+    file exists but no signal is found above threshold.
+    """
+    image_path = images_root / objectid
+    fits_file = locate_band_fits(image_path, detect_band)
+    if fits_file is None:
+        logger.debug(
+            f"[{objectid}] detect-band '{detect_band}' cutout not found -- "
+            f"detection skipped"
+        )
+        return None
+    try:
+        from astropy.io import fits as astropy_fits
+        with astropy_fits.open(fits_file) as hdul:
+            data = hdul[0].data.astype(float)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[{objectid}] failed to open detect-band FITS: {e}")
+        return None
+    return detect_source(data, sigma_threshold=detect_sigma)
+
+
 def fit_catalog(
     images_root: Path,
     output_dir: Path,
@@ -315,6 +400,8 @@ def fit_catalog(
     make_summary: bool = True,
     psf_mode: str = "auto",
     psf_gate: float = DEFAULT_PSF_GATE,
+    detect_sigma: float = DEFAULT_DETECT_SIGMA,
+    detect_band: str = DEFAULT_DETECT_BAND,
 ) -> pd.DataFrame:
     """Fit every (object, band) pair in `catalog` and write outputs to `output_dir`.
 
@@ -331,6 +418,14 @@ def fit_catalog(
         ``'off'`` -- never deconvolve (v0.1.0 behaviour).
     psf_gate
         Threshold ratio used in ``'auto'`` mode. See ``palfitology.psf``.
+    detect_sigma
+        Sigma threshold for source detection in the ``detect_band`` image.
+        Default 3.0 (SExtractor-style).  Set to 0 to disable detection
+        entirely (reverts to catalog-prior seeding as in v0.3).
+    detect_band
+        Which band image is used as the detection master.  Default 'rSDSS'.
+        Must be a band present in ``bands``; if not found for a given object,
+        detection is silently skipped and the fit falls back to catalog priors.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -342,6 +437,32 @@ def fit_catalog(
                 "the gate falls back to 'raw' (no deconvolution) for every row. "
                 "Add an R_EFF column (in pixels) to enable deconvolution."
             )
+
+    # ------------------------------------------------------------------
+    # V0.4: pre-compute r-band (or detect_band) detection for every object.
+    # This runs in the parent process before workers are spawned so the
+    # DetectionResult can be serialised into each task dict.
+    # ------------------------------------------------------------------
+    use_detection = detect_sigma > 0.0
+    detection_by_obj: Dict[str, Optional[DetectionResult]] = {}
+    if use_detection:
+        logger.info(
+            f"Running {detect_band} sigma-clip detection "
+            f"(sigma={detect_sigma}) for {len(catalog)} objects ..."
+        )
+        for _, row in catalog.iterrows():
+            oid = str(row["id"])
+            detection_by_obj[oid] = _run_detection_for_object(
+                oid, images_root, detect_band, detect_sigma
+            )
+        n_ok = sum(
+            1 for d in detection_by_obj.values()
+            if d is not None and d.status == "ok"
+        )
+        logger.info(
+            f"Detection complete: {n_ok}/{len(catalog)} objects detected "
+            f"in {detect_band} (sigma={detect_sigma})"
+        )
 
     tasks: List[Dict[str, Any]] = []
     expected_bands_by_obj: Dict[str, set] = {}
@@ -356,6 +477,7 @@ def fit_catalog(
         pa_prior = float(row.get("pa_jplus", 30.0))
         r_eff_pixels = float(row.get("R_EFF", np.nan)) if has_r_eff else float("nan")
         objectid = str(row["id"])
+        det_result = detection_by_obj.get(objectid) if use_detection else None
         expected_bands_by_obj.setdefault(objectid, set())
         for band in bands:
             expected_bands_by_obj[objectid].add(band)
@@ -372,6 +494,7 @@ def fit_catalog(
                 "psf_mode": psf_mode,
                 "psf_gate": psf_gate,
                 "r_eff_pixels": r_eff_pixels,
+                "detect_result": det_result,
             })
 
     logger.info(
