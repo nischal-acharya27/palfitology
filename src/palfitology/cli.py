@@ -38,6 +38,7 @@ from .catalog import (  # noqa: E402
     filter_to_existing_image_dirs,
     load_catalog,
 )
+from .consensus import _add_consensus_subparser  # noqa: E402
 from .pipeline import fit_catalog  # noqa: E402
 from .reconcile import _add_reconcile_subparser  # noqa: E402
 
@@ -186,8 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_fit_pa_subparser(subparsers)
     _add_reconcile_subparser(subparsers)
+    _add_consensus_subparser(subparsers)
     _stub_subparser(subparsers, "download", "planned")
-    _stub_subparser(subparsers, "consensus", "planned")
     _stub_subparser(subparsers, "galfit", "planned")
 
     return parser

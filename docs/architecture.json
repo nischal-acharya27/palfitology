@@ -234,16 +234,16 @@
       "name": "Cross-band consensus",
       "module": "palfitology.consensus",
       "path": "src/palfitology/consensus.py",
-      "loc": 13,
-      "kind": "stub",
-      "group": "future",
-      "color": "muted",
+      "loc": 308,
+      "kind": "post-process",
+      "group": "output",
+      "color": "ember",
       "icon": "users",
       "depends_on": [],
-      "depended_on_by": [],
-      "public_symbols": [],
-      "planned_version": "v0.3",
-      "notes": "Per-object PA from weighted-mean across the 12 bands, with outlier flagging."
+      "depended_on_by": ["cli"],
+      "public_symbols": ["consensus_for_catalog", "consensus_for_object", "circular_mean_deg", "circular_diff_deg", "circular_std_deg", "CONSENSUS_COLUMNS", "DEFAULT_OUTLIER_K", "DEFAULT_MIN_BANDS"],
+      "external_deps": ["numpy", "pandas"],
+      "notes": "Weighted circular mean of per-band PAs. Weight = est_ell^2 / pa_err^2 (round galaxies contribute ~0). Eligible bands: status in {ok, weak}. Outliers flagged when circular distance > k * circular_std (default k=2)."
     },
     {
       "id": "galfit",
@@ -551,7 +551,7 @@
   "roadmap": [
     {"version": "v0.1", "feature": "Refactor V7 monolith into package + CLI",            "status": "shipped"},
     {"version": "v0.2", "feature": "PSF-aware fitting (Wiener deconv + auto gate)",       "status": "implemented; cluster-validated; pending PA-split decision"},
-    {"version": "v0.3", "feature": "Cross-band PA consensus + outlier flagging",           "status": "planned"},
+    {"version": "v0.3", "feature": "Cross-band PA consensus + outlier flagging",           "status": "implemented; weighted circular mean (ell^2 / pa_err^2); pending cluster run"},
     {"version": "v0.4", "feature": "GALFIT priors writer",                                 "status": "planned"},
     {"version": "v0.5", "feature": "Download integration (AutomatedImageDownloadsV2 port)","status": "planned"}
   ],
