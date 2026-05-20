@@ -241,9 +241,9 @@
       "icon": "users",
       "depends_on": [],
       "depended_on_by": ["cli"],
-      "public_symbols": ["consensus_for_catalog", "consensus_for_object", "circular_mean_deg", "circular_diff_deg", "circular_std_deg", "CONSENSUS_COLUMNS", "DEFAULT_OUTLIER_K", "DEFAULT_MIN_BANDS"],
+      "public_symbols": ["consensus_for_catalog", "consensus_for_object", "circular_mean_deg", "circular_diff_deg", "circular_std_deg", "CONSENSUS_COLUMNS", "DEFAULT_OUTLIER_K", "DEFAULT_MIN_BANDS", "DEFAULT_MIN_OUTLIER_DEG"],
       "external_deps": ["numpy", "pandas"],
-      "notes": "Weighted circular mean of per-band PAs. Weight = est_ell^2 / pa_err^2 (round galaxies contribute ~0). Eligible bands: status in {ok, weak}. Outliers flagged when circular distance > k * circular_std (default k=2)."
+      "notes": "Weighted circular mean of per-band PAs. Weight = est_ell^2 / pa_err^2 (round galaxies contribute ~0). Eligible bands: status in {ok, weak}. Two-clause outlier rule: a band is flagged only when delta exceeds BOTH k * circular_std (default k=2) AND min_outlier_deg (default 5 deg). The absolute floor prevents tight-consensus galaxies from generating spurious outlier counts."
     },
     {
       "id": "galfit",

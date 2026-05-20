@@ -186,6 +186,7 @@ def test_object_consensus_zero_weight_inputs_failed():
 
 def test_object_consensus_outlier_flagged():
     # Three bands agree on PA=40, one wild at PA=130.
+    # The wild band is well above both the 2-sigma threshold AND the 5-deg floor.
     df = _mk_rows([
         ("X1", "rSDSS", 40.0, 0.6, 0.5, "ok"),
         ("X1", "iSDSS", 41.0, 0.6, 0.5, "ok"),
@@ -195,6 +196,40 @@ def test_object_consensus_outlier_flagged():
     row = consensus_for_object(df, outlier_k=DEFAULT_OUTLIER_K)
     assert "J0378" in row["outlier_bands"].split(",")
     assert row["n_outliers"] >= 1
+
+
+def test_object_consensus_tight_cluster_suppressed_by_floor():
+    # Five bands at PA ~ 42, one at PA = 45. Within the sample, the 45 deg
+    # band is statistically far (low circ_std on the others), but only 3 deg
+    # from the mean -- below the default 5 deg floor. Should NOT be flagged.
+    df = _mk_rows([
+        ("X1", "rSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "iSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "gSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "zSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "J0660", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "J0395", 45.0, 0.6, 0.5, "ok"),  # 3 deg from mean
+    ])
+    row = consensus_for_object(df, outlier_k=DEFAULT_OUTLIER_K, min_outlier_deg=5.0)
+    assert row["n_outliers"] == 0, (
+        f"3-deg deviation should NOT exceed the 5-deg floor; got "
+        f"outliers={row['outlier_bands']}"
+    )
+
+
+def test_object_consensus_floor_can_be_disabled():
+    # With min_outlier_deg=0, the old behaviour is restored: tight clusters
+    # generate spurious outliers.
+    df = _mk_rows([
+        ("X1", "rSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "iSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "gSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "zSDSS", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "J0660", 42.0, 0.6, 0.5, "ok"),
+        ("X1", "J0395", 45.0, 0.6, 0.5, "ok"),
+    ])
+    row = consensus_for_object(df, outlier_k=DEFAULT_OUTLIER_K, min_outlier_deg=0.0)
+    assert "J0395" in row["outlier_bands"].split(",")
 
 
 def test_object_consensus_pa_err_propagation_falls_with_n():

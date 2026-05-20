@@ -25,8 +25,17 @@ Bands eligible to contribute: status in {"ok", "weak"}. ``imputed`` and
 a filter -- a 'deconv->raw_fallback' row is a successful fit on the raw
 cutout and its pa_err is already representative.
 
-Outlier rule: a band is flagged when the circular distance between its
-PA and the consensus exceeds ``outlier_k * circ_std`` (default k=2).
+Outlier rule (two-clause, both must fire):
+
+    delta > outlier_k * circ_std    AND    delta > min_outlier_deg
+
+The first clause is statistical: the band deviates more than k sigma from
+the per-object consensus. The second clause is an absolute-degree floor
+(default 5 deg) that prevents tight-consensus galaxies from generating
+spurious outlier flags. Without the floor, an object whose 12 bands sit
+at 42 +/- 1 deg would flag any band at 47 deg as an "outlier" even though
+that band is perfectly consistent with the others in absolute terms.
+
 Outlier flags are informational; they do not retroactively change the
 consensus value in this version.
 """
@@ -51,11 +60,13 @@ __all__ = [
     "CONSENSUS_COLUMNS",
     "DEFAULT_OUTLIER_K",
     "DEFAULT_MIN_BANDS",
+    "DEFAULT_MIN_OUTLIER_DEG",
 ]
 
 
 DEFAULT_OUTLIER_K = 2.0
 DEFAULT_MIN_BANDS = 3
+DEFAULT_MIN_OUTLIER_DEG = 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +182,7 @@ def consensus_for_object(
     rows: pd.DataFrame,
     outlier_k: float = DEFAULT_OUTLIER_K,
     min_bands: int = DEFAULT_MIN_BANDS,
+    min_outlier_deg: float = DEFAULT_MIN_OUTLIER_DEG,
 ) -> dict:
     """Compute the consensus row for one object's per-band table.
 
@@ -180,8 +192,12 @@ def consensus_for_object(
         Per-band rows for one object id. Must have columns
         ``band, est_pa, est_ell, pa_err, status``.
     outlier_k : float
-        Bands whose circular distance from the consensus exceeds
-        ``outlier_k * circ_std`` are flagged.
+        Statistical part of the outlier rule: bands whose circular distance
+        from the consensus exceeds ``outlier_k * circ_std`` are candidates.
+    min_outlier_deg : float
+        Absolute floor on the outlier rule. A band is only flagged when its
+        circular distance ALSO exceeds this many degrees, preventing tight-
+        consensus galaxies from flagging trivial deviations.
     min_bands : int
         If fewer than ``min_bands`` bands contribute, status='low_confidence'.
         If zero bands contribute, status='failed'.
@@ -221,12 +237,14 @@ def consensus_for_object(
     var_mean = float(np.sum((weights ** 2) * (errs ** 2)) / (sum_w ** 2))
     pa_err_mean = float(np.sqrt(var_mean))
 
-    # Outlier detection
+    # Outlier detection: BOTH clauses must fire.
+    #   (1) delta > outlier_k * circ_std    (statistical)
+    #   (2) delta > min_outlier_deg          (absolute floor)
     outlier_bands: list[str] = []
     if np.isfinite(cstd) and cstd > 0 and len(angles) >= 2:
-        threshold = outlier_k * cstd
+        threshold_sigma = outlier_k * cstd
         deltas = np.array([circular_diff_deg(a, pa_mean) for a in angles])
-        is_out = deltas > threshold
+        is_out = (deltas > threshold_sigma) & (deltas > min_outlier_deg)
         outlier_bands = [str(b) for b, out in zip(bands, is_out) if out]
 
     n_used = int(len(angles))
@@ -262,6 +280,7 @@ def consensus_for_catalog(
     results_df: pd.DataFrame,
     outlier_k: float = DEFAULT_OUTLIER_K,
     min_bands: int = DEFAULT_MIN_BANDS,
+    min_outlier_deg: float = DEFAULT_MIN_OUTLIER_DEG,
 ) -> pd.DataFrame:
     """Apply consensus_for_object across every id in a long-form PA_results table.
 
@@ -287,7 +306,12 @@ def consensus_for_catalog(
     out_rows: list[dict] = []
     for _, group in results_df.groupby("id", sort=True):
         out_rows.append(
-            consensus_for_object(group, outlier_k=outlier_k, min_bands=min_bands)
+            consensus_for_object(
+                group,
+                outlier_k=outlier_k,
+                min_bands=min_bands,
+                min_outlier_deg=min_outlier_deg,
+            )
         )
 
     return pd.DataFrame(out_rows, columns=CONSENSUS_COLUMNS)
@@ -320,7 +344,18 @@ def _add_consensus_subparser(subparsers):
     )
     p.add_argument(
         "--outlier-k", type=float, default=DEFAULT_OUTLIER_K,
-        help=f"Outlier threshold in circular sigmas (default: {DEFAULT_OUTLIER_K}).",
+        help=(
+            f"Statistical outlier threshold in circular sigmas "
+            f"(default: {DEFAULT_OUTLIER_K})."
+        ),
+    )
+    p.add_argument(
+        "--min-outlier-deg", type=float, default=DEFAULT_MIN_OUTLIER_DEG,
+        help=(
+            f"Absolute floor on outlier flagging in degrees "
+            f"(default: {DEFAULT_MIN_OUTLIER_DEG}). A band must exceed BOTH "
+            f"the sigma threshold AND this floor to be flagged."
+        ),
     )
     p.add_argument(
         "--min-bands", type=int, default=DEFAULT_MIN_BANDS,
@@ -355,11 +390,15 @@ def _cmd_consensus(args) -> int:
 
     logger.info(
         f"Computing consensus (outlier_k={args.outlier_k}, "
+        f"min_outlier_deg={args.min_outlier_deg}, "
         f"min_bands={args.min_bands}) over {df['id'].nunique()} objects, "
         f"{len(df)} rows"
     )
     out = consensus_for_catalog(
-        df, outlier_k=args.outlier_k, min_bands=args.min_bands
+        df,
+        outlier_k=args.outlier_k,
+        min_bands=args.min_bands,
+        min_outlier_deg=args.min_outlier_deg,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
