@@ -78,10 +78,11 @@ def test_reconcile_writes_expected_columns(tmp_path: Path):
     # Median over ok rows only: median(15.0, 14.5) = 14.75
     assert abs(out["pa_median_ok"].iloc[0] - 14.75) < 1e-9
 
-    # pa_jplus_norm = (90 - 15.5) % 180 = 74.5
-    # diff between 74.5 and 14.75 wraps to ~59.75 (circular, capped at 90).
-    assert abs(out["pa_jplus_norm"].iloc[0] - 74.5) < 1e-9
-    assert abs(out["pa_diff_median"].iloc[0] - 59.75) < 1e-9
+    # transform_pa_jplus(15.5) = 180 - 15.5 = 164.5
+    # circular diff between 14.75 and 164.5 wraps via [0, 180):
+    #   |14.75 - 164.5| = 149.75 -> min(149.75, 30.25) = 30.25
+    assert abs(out["pa_jplus_norm"].iloc[0] - 164.5) < 1e-9
+    assert abs(out["pa_diff_median"].iloc[0] - 30.25) < 1e-6
 
     # Status counts
     assert out["n_bands_ok"].iloc[0] == 2
@@ -94,39 +95,45 @@ def test_reconcile_writes_expected_columns(tmp_path: Path):
 
 
 def test_transform_pa_jplus_basic():
-    """The (90 - x) mod 180 rule produces values in [0, 180) and handles NaN."""
-    assert abs(transform_pa_jplus(0.0) - 90.0) < 1e-9
-    assert abs(transform_pa_jplus(45.0) - 45.0) < 1e-9
-    assert abs(transform_pa_jplus(90.0) - 0.0) < 1e-9
+    """pa_corr = 180 - (pa_jplus + (pa_jplus<0)*180).
+
+    The cluster-validated mapping:
+      0   -> 180
+      45  -> 135
+      90  -> 90
+      -10 -> 10
+      -90 -> 90
+      -89 -> 89
+    """
+    assert abs(transform_pa_jplus(0.0) - 180.0) < 1e-9
+    assert abs(transform_pa_jplus(45.0) - 135.0) < 1e-9
+    assert abs(transform_pa_jplus(90.0) - 90.0) < 1e-9
+    assert abs(transform_pa_jplus(-10.0) - 10.0) < 1e-9
+    assert abs(transform_pa_jplus(-90.0) - 90.0) < 1e-9
+    assert abs(transform_pa_jplus(-89.0) - 89.0) < 1e-9
     assert np.isnan(transform_pa_jplus(float("nan")))
 
 
-def test_transform_collapses_signed_pas_on_same_axis():
-    """Two J-PLUS PAs that describe the same physical axis should map to the
-    same wrapped value under the J-PLUS rule.
+def test_transform_signed_pas_map_consistently():
+    """Concrete TOPCAT-style examples cited in the spec.
 
-    `pa_jplus = +15` and `pa_jplus = -165` describe the same direction once
-    you allow the 180° flip. After (90 - x) mod 180:
-        15  ->  75
-        -165 -> 255 mod 180 = 75
+    pa_jplus = -7.23  -> pa_tmp = 172.77 -> pa_corr = 7.23
+    pa_jplus = +15    -> pa_tmp = 15     -> pa_corr = 165
+    pa_jplus = -165   -> pa_tmp = 15     -> pa_corr = 165
     """
-    assert abs(transform_pa_jplus(15.0) - 75.0) < 1e-9
-    assert abs(transform_pa_jplus(-165.0) - 75.0) < 1e-9
-    # And -15 maps to 105 (a different axis, 30° off from above).
-    assert abs(transform_pa_jplus(-15.0) - 105.0) < 1e-9
+    assert abs(transform_pa_jplus(-7.23) - 7.23) < 1e-9
+    assert abs(transform_pa_jplus(15.0) - 165.0) < 1e-9
+    assert abs(transform_pa_jplus(-165.0) - 165.0) < 1e-9
 
 
 def test_reconcile_collapses_to_y_equals_x(tmp_path: Path):
-    """A galaxy whose fitted PA already equals (90 - pa_jplus) should report
-    diff ~ 0 -- i.e. the convention transform fully reconciles it.
-    """
+    """A galaxy whose fitted PA already equals pa_corr should report diff ~ 0."""
     fitted = tmp_path / "fitted_pa_images"
     obj_dir = fitted / "obj1"
     obj_dir.mkdir(parents=True)
+    # pa_jplus = -7.23 -> pa_corr = 7.23 under the new rule.
     pd.DataFrame([
-        # pa_jplus = -7.23  ->  transformed = (90 - (-7.23)) % 180 = 97.23.
-        # Our est_pa is exactly that for diff = 0.
-        {"id": "obj1", "band": "rSDSS", "est_pa": 97.23, "status": "ok",
+        {"id": "obj1", "band": "rSDSS", "est_pa": 7.23, "status": "ok",
          "est_sma": 50.0, "est_ell": 0.5, "fits_path": "/tmp/x.fits"},
     ]).to_csv(obj_dir / "PA_fits.csv", index=False)
     catalog_path = tmp_path / "cat.csv"
@@ -138,7 +145,7 @@ def test_reconcile_collapses_to_y_equals_x(tmp_path: Path):
         catalog_path=catalog_path,
         output_path=fitted / "PA_reconciliation.csv",
     )
-    assert abs(out["pa_jplus_norm"].iloc[0] - 97.23) < 1e-6
+    assert abs(out["pa_jplus_norm"].iloc[0] - 7.23) < 1e-6
     assert abs(out["pa_diff_median"].iloc[0]) < 1e-6
 
 

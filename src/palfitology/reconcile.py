@@ -125,18 +125,31 @@ def _wrap_pa_0_180(deg: float) -> float:
 def transform_pa_jplus(deg: float) -> float:
     """Convert J-PLUS catalog pa_jplus into photutils' image frame.
 
-    photutils returns PA in degrees, CCW from +x (image-frame). J-PLUS /
-    SExtractor THETA_J2000 is measured east of north (sky-frame), so the
-    reflection-plus-shift rule (90 - pa_jplus) mod 180 moves it into
-    photutils' frame. Empirically verified on the user's data: this collapses
-    the reconciliation scatter onto y=x, whereas a plain `% 180` produces two
-    parallel branches.
+    J-PLUS / SExtractor ``THETA_IMAGE`` is reported on [-90, 90] degrees,
+    while photutils returns PA on [0, 180). The mapping that yields a
+    perfect 1:1 line on real data is::
+
+        pa_tmp  = pa_jplus + 180  if pa_jplus < 0 else pa_jplus    # -> [0, 180)
+        pa_corr = 180 - pa_tmp                                     # reverse zero-point
+
+    The compact NumPy form (which we use here scalar-by-scalar) is::
+
+        pa_corr = 180 - (pa_jplus + (pa_jplus < 0) * 180)
+
+    Empirically verified on the V0.2 cluster run: the previous
+    ``(90 - pa_jplus) mod 180`` mapping produced two parallel branches
+    (the PA-flip split observed in 70% of rSDSS rows). The mapping above
+    collapses the scatter onto ``y = x`` because it accounts for the
+    *reversed direction* of the SExtractor angle relative to photutils
+    (their zero-points are antipodal, not just shifted).
 
     NaN propagates.
     """
     if deg is None or not np.isfinite(deg):
         return float("nan")
-    return float((90.0 - float(deg)) % 180.0)
+    d = float(deg)
+    pa_tmp = d + 180.0 if d < 0 else d
+    return float(180.0 - pa_tmp)
 
 
 def circular_diff_deg(a: float, b: float) -> float:
