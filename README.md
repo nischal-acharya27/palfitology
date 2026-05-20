@@ -20,8 +20,8 @@ galaxies in parallel on a multi-core node.
 
 - **[Architecture map](https://nisach02.github.io/palfitology/)** — interactive
   single-page diagram of every module, its dependencies, the data flows, ADRs,
-  CSV schemas, and the V0.2 run results. Click any module for its file path,
-  public symbols, and tests. `Cmd/Ctrl + K` opens a command palette.
+  CSV schemas, and the V0.2/V0.3 cluster run results. Click any module for its
+  file path, public symbols, and tests. `Cmd/Ctrl + K` opens a command palette.
 - **[`docs/architecture.json`](https://nisach02.github.io/palfitology/architecture.json)** —
   machine-readable architecture spec the page above consumes; suitable for AI
   coding agents and other tooling.
@@ -30,10 +30,22 @@ galaxies in parallel on a multi-core node.
 
 ## Status
 
-Early alpha. `palfitology fit-pa` and `palfitology reconcile` are working.
-**v0.2** ships PSF-aware preprocessing (Wiener deconvolution gated on PSF
-FWHM vs catalog `R_EFF`); cross-band consensus and the GALFIT priors writer
-are next.
+Early alpha. Three subcommands working: `palfitology fit-pa`,
+`palfitology reconcile`, `palfitology consensus`.
+
+**v0.2** — PSF-aware preprocessing (Wiener deconvolution gated on PSF
+FWHM vs catalog `R_EFF`). Shipped, cluster-validated on 243k rows.
+
+**v0.3** — Cross-band PA consensus (weighted circular mean across the
+12 bands with `est_ell² / pa_err²` weights and a two-clause outlier rule).
+Shipped, cluster-validated on 20k objects.
+
+**v0.4** — *next*: r-band sigma-cutoff detection. The rSDSS detection mask
+will seed the isophote-fit geometry for every band, replacing the catalog
+priors as the initial guess. This is the next planned upgrade.
+
+**v0.5/v0.6** — planned: GALFIT priors writer and a download integration
+(`AutomatedImageDownloadsV2` port).
 
 ## Install
 
@@ -135,9 +147,10 @@ The `palfitology` CLI is organised as subcommands, one per pipeline stage:
 
 | subcommand              | status   | purpose                                                          |
 |-------------------------|----------|------------------------------------------------------------------|
-| `palfitology download`  | planned  | Fetch J-PLUS cutouts and PSFs for catalog entries                |
 | `palfitology fit-pa`    | working  | Per-band isophotal PA fit + diagnostics                          |
-| `palfitology consensus` | planned  | Cross-band PA/ell consensus + outlier flagging                   |
+| `palfitology reconcile` | working  | Cross-match fitted PAs against catalog `pa_jplus` (with scatter plots) |
+| `palfitology consensus` | working  | Cross-band weighted circular-mean consensus + outlier flagging   |
+| `palfitology download`  | planned  | Fetch J-PLUS cutouts and PSFs for catalog entries                |
 | `palfitology galfit`    | planned  | Emit GALFIT-ready input files from consensus values              |
 
 ## Development
