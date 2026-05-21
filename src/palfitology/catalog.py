@@ -17,6 +17,33 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_COLUMNS: Set[str] = {"id", "A_WORLD", "B_WORLD", "pa_jplus"}
 
+# CSVs that palfitology *produces* — auto-discover must ignore them, otherwise
+# re-running a second command in the same directory fails with
+# "Multiple .csv files ... Disambiguate with --catalog".
+#
+# Match by exact filename when known, and by glob for the ones we name with
+# variable suffixes (per-band reconciliation plots, etc).
+_PALFITOLOGY_OUTPUT_NAMES: Set[str] = {
+    "PA_results.csv",
+    "PA_reconciliation.csv",
+    "PA_consensus.csv",
+    "make_cutouts_report.csv",
+}
+_PALFITOLOGY_OUTPUT_GLOBS: tuple[str, ...] = (
+    "PA_reconciliation_*.csv",
+    "PA_fits.csv",  # written per-object; could in theory live in cwd
+)
+
+
+def _is_palfitology_output(path: Path) -> bool:
+    """Return True for CSVs that palfitology wrote itself."""
+    if path.name in _PALFITOLOGY_OUTPUT_NAMES:
+        return True
+    for pattern in _PALFITOLOGY_OUTPUT_GLOBS:
+        if path.match(pattern):
+            return True
+    return False
+
 
 def load_catalog(path: Path) -> pd.DataFrame:
     """Load a catalog CSV, synthesizing ``id`` from ``TILE_ID``/``NUMBER`` if needed.
@@ -44,12 +71,26 @@ def load_catalog(path: Path) -> pd.DataFrame:
 
 
 def auto_discover_catalog(project_root: Path) -> Path:
-    """Find a single ``*.csv`` in ``project_root``.
+    """Find a single user-supplied ``*.csv`` in ``project_root``.
 
-    Raises FileNotFoundError if zero are found, ValueError if multiple.
+    Files that palfitology itself produces (PA_results.csv,
+    make_cutouts_report.csv, etc.) are skipped so that re-running a command
+    in a directory that already contains pipeline outputs still works.
+
+    Raises FileNotFoundError if zero candidates remain, ValueError if
+    multiple non-output CSVs are present.
     """
-    candidates = sorted(project_root.glob("*.csv"))
+    all_csvs = sorted(project_root.glob("*.csv"))
+    candidates = [p for p in all_csvs if not _is_palfitology_output(p)]
+
     if len(candidates) == 0:
+        if all_csvs:
+            ignored = ", ".join(p.name for p in all_csvs)
+            raise FileNotFoundError(
+                f"No catalog .csv file found in {project_root}. "
+                f"(Ignored palfitology-output files: {ignored}.) "
+                f"Place a catalog CSV in the project root or pass --catalog explicitly."
+            )
         raise FileNotFoundError(
             f"No catalog .csv file found in {project_root}. "
             f"Place a catalog CSV in the project root or pass --catalog explicitly."

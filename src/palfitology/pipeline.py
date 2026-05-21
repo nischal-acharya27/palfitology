@@ -236,6 +236,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
             data=data, objectid=objectid, band=band, cand=cand,
             out_path=png_path, is_imputed=is_imputed,
             fallback_priors=imputed_priors,
+            detect_result=detect_result,
         )
     except Exception as e:  # noqa: BLE001
         logger.error(f"[{objectid}/{band}] plotting failed: {e}")
@@ -303,6 +304,7 @@ def _render_object_summary(
     bands_order: List[str],
     output_dir: Path,
     all_summaries_dir: Path,
+    detect_result: Optional[DetectionResult] = None,
 ) -> None:
     """Write one object's PA_fits.csv and 3x4 mosaic to per-object + central folders."""
     obj_dir = output_dir / objectid
@@ -349,6 +351,7 @@ def _render_object_summary(
                 obj_dir / f"{objectid}_summary.png",
                 all_summaries_dir / f"{objectid}_summary.png",
             ],
+            detect_result=detect_result,
         )
     except Exception as e:  # noqa: BLE001
         logger.error(f"[{objectid}] summary mosaic failed: {e}")
@@ -521,6 +524,7 @@ def fit_catalog(
                 bands_order=bands,
                 output_dir=output_dir,
                 all_summaries_dir=all_summaries_dir,
+                detect_result=detection_by_obj.get(objectid) if use_detection else None,
             )
             pending_rows[objectid] = []
             seen_bands[objectid] = set()
@@ -568,6 +572,7 @@ def fit_catalog(
                     bands_order=bands,
                     output_dir=output_dir,
                     all_summaries_dir=all_summaries_dir,
+                    detect_result=detection_by_obj.get(oid) if use_detection else None,
                 )
 
     # Stable order in the final dataframe: catalog order, then band order.

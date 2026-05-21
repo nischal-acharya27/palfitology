@@ -73,6 +73,28 @@ def test_auto_discover_multiple_csvs(tmp_path: Path):
         auto_discover_catalog(tmp_path)
 
 
+def test_auto_discover_ignores_palfitology_output_files(tmp_path: Path):
+    """The make-cutouts / fit-pa report CSVs in cwd must not collide with
+    the user's catalog during auto-discovery."""
+    (tmp_path / "1638518.csv").write_text("id\nx\n")
+    (tmp_path / "make_cutouts_report.csv").write_text("id,band,status\nx,r,ok\n")
+    (tmp_path / "PA_results.csv").write_text("id,band\nx,r\n")
+    (tmp_path / "PA_reconciliation.csv").write_text("id\nx\n")
+    (tmp_path / "PA_reconciliation_rSDSS.csv").write_text("id\nx\n")
+    (tmp_path / "PA_consensus.csv").write_text("id\nx\n")
+    # Only the user's catalog should be returned.
+    assert auto_discover_catalog(tmp_path).name == "1638518.csv"
+
+
+def test_auto_discover_reports_ignored_outputs_in_error(tmp_path: Path):
+    """If the only CSVs are palfitology outputs, the error mentions them so
+    the user understands why no catalog was found."""
+    (tmp_path / "PA_results.csv").write_text("id\nx\n")
+    (tmp_path / "make_cutouts_report.csv").write_text("id\nx\n")
+    with pytest.raises(FileNotFoundError, match="Ignored palfitology-output"):
+        auto_discover_catalog(tmp_path)
+
+
 def test_filter_to_existing_image_dirs(tmp_path: Path):
     images = tmp_path / "images"
     images.mkdir()

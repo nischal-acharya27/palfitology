@@ -2,10 +2,12 @@
 
 Exposes subcommands, one per pipeline stage:
 
-    palfitology fit-pa     -- per-band isophotal PA fit + diagnostics
-    palfitology download   -- (planned) fetch J-PLUS cutouts + PSFs
-    palfitology consensus  -- (planned) cross-band PA consensus + flagging
-    palfitology galfit     -- (planned) emit GALFIT input files
+    palfitology fit-pa        -- per-band isophotal PA fit + diagnostics
+    palfitology make-cutouts  -- sigma-clipped cutouts (mask from rSDSS, applied
+                                  to one or more bands) written next to originals
+    palfitology download      -- (planned) fetch J-PLUS cutouts + PSFs
+    palfitology consensus     -- (planned) cross-band PA consensus + flagging
+    palfitology galfit        -- (planned) emit GALFIT input files
 
 Entry point is `main`; the `palfitology` console script (from
 `pyproject.toml`) calls it.
@@ -33,13 +35,14 @@ for _var in (
     os.environ.setdefault(_var, "1")
 
 from . import ALL_BANDS, __version__  # noqa: E402 -- after BLAS pin
-from .detect import DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA  # noqa: E402
+from .detect import DEFAULT_CLIP_DILATE, DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA  # noqa: E402
 from .catalog import (  # noqa: E402
     auto_discover_catalog,
     filter_to_existing_image_dirs,
     load_catalog,
 )
 from .consensus import _add_consensus_subparser  # noqa: E402
+from .cutouts import make_cutouts_for_catalog  # noqa: E402
 from .pipeline import fit_catalog  # noqa: E402
 from .reconcile import _add_reconcile_subparser  # noqa: E402
 
@@ -177,6 +180,141 @@ def _cmd_fit_pa(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_make_cutouts_subparser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "make-cutouts",
+        help="Generate sigma-clipped FITS cutouts from a detect band (default rSDSS).",
+        description=(
+            "Run sigma-clipped detection on the detect-band (default rSDSS) "
+            "image for every object in the catalog, then apply the resulting "
+            "mask to one or more bands to produce new FITS cutouts where "
+            "pixels outside the detected galaxy are NaN.  The new cutouts are "
+            "written to a sibling 'clipped_cutouts_<ra>_<dec>/' folder next "
+            "to the originals; the originals are never modified.  Run with "
+            "--apply-bands rSDSS for the first sanity check, then expand to "
+            "the full 12-band list once the masks look right."
+        ),
+    )
+    p.add_argument("--images-root", type=Path, default=None,
+                   help="Folder containing one subfolder per object (default: ./images).")
+    p.add_argument("--catalog", type=Path, default=None,
+                   help="Input catalog CSV. If omitted, auto-discover a single .csv in cwd.")
+    p.add_argument("--detect-band", type=str, default=DEFAULT_DETECT_BAND,
+                   help=f"Band used to build the mask (default: {DEFAULT_DETECT_BAND}).")
+    p.add_argument("--apply-bands", nargs="+", default=None,
+                   help=(
+                       "Bands the mask is applied to (default: --detect-band only). "
+                       "Pass 'all' to apply to every canonical J-PLUS band, or "
+                       "list explicit band names."
+                   ))
+    p.add_argument("--detect-sigma", type=float, default=DEFAULT_DETECT_SIGMA,
+                   help=f"Sigma threshold above background (default: {DEFAULT_DETECT_SIGMA}).")
+    p.add_argument("--dilate", type=int, default=DEFAULT_CLIP_DILATE,
+                   help=(
+                       f"Dilate the binary mask by N pixels before applying "
+                       f"(default: {DEFAULT_CLIP_DILATE}). Use 1-3 to give the "
+                       f"isophote fitter breathing room around the source edge."
+                   ))
+    p.add_argument("--limit", type=int, default=0,
+                   help="Process only the first N objects (0 = all).")
+    p.add_argument("--all", action="store_true", help="Shortcut for --limit 0.")
+    p.add_argument("--no-overwrite", action="store_true",
+                   help="Skip objects whose clipped cutout already exists.")
+    p.add_argument("--report", type=Path, default=None,
+                   help=(
+                       "Where to write the per-(id, band) report CSV (default: "
+                       "./make_cutouts_report.csv)."
+                   ))
+    p.add_argument("--debug", action="store_true", help="Verbose logging.")
+    p.set_defaults(func=_cmd_make_cutouts)
+
+
+def _cmd_make_cutouts(args: argparse.Namespace) -> int:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    cwd = Path.cwd()
+
+    images_root = args.images_root or (cwd / "images")
+
+    if args.catalog is None:
+        try:
+            args.catalog = auto_discover_catalog(cwd)
+        except (FileNotFoundError, ValueError) as e:
+            logger.error(str(e))
+            return 1
+        logger.info(f"Auto-discovered catalog: {args.catalog.name}")
+
+    if not args.catalog.is_file():
+        logger.error(f"Catalog not found: {args.catalog}")
+        return 1
+    if not images_root.is_dir():
+        logger.error(f"Images root not found: {images_root}")
+        return 1
+
+    # Resolve --apply-bands.
+    if args.apply_bands is None:
+        apply_bands = [args.detect_band]
+        logger.info(
+            f"--apply-bands not given -- defaulting to detect-band only "
+            f"({args.detect_band}). Pass --apply-bands all once you trust the masks."
+        )
+    elif len(args.apply_bands) == 1 and args.apply_bands[0].lower() == "all":
+        apply_bands = list(ALL_BANDS)
+    else:
+        apply_bands = list(args.apply_bands)
+
+    unknown_bands = [b for b in apply_bands if b not in ALL_BANDS]
+    if unknown_bands:
+        logger.warning(
+            f"Bands not in the canonical J-PLUS list: {unknown_bands}. "
+            f"make-cutouts will still look for <band>_cutout.fits matching those names."
+        )
+
+    try:
+        df = load_catalog(args.catalog)
+    except ValueError as e:
+        logger.error(str(e))
+        return 1
+
+    df = filter_to_existing_image_dirs(df, images_root)
+
+    limit = 0 if args.all else args.limit
+    if limit and limit > 0:
+        df = df.head(limit)
+        logger.info(f"Limiting to first {limit} objects for this run")
+
+    logger.info(
+        f"make-cutouts: {len(df)} objects, detect-band={args.detect_band}, "
+        f"apply-bands={apply_bands}, sigma={args.detect_sigma}, dilate={args.dilate}"
+    )
+
+    reports = make_cutouts_for_catalog(
+        images_root=images_root,
+        catalog=df,
+        detect_band=args.detect_band,
+        apply_bands=apply_bands,
+        sigma_threshold=args.detect_sigma,
+        dilate=args.dilate,
+        overwrite=not args.no_overwrite,
+    )
+
+    # Summarise + write the report CSV.
+    import pandas as pd  # local import keeps top-of-file slim
+
+    report_df = pd.DataFrame([r.__dict__ for r in reports])
+    report_path = args.report or (cwd / "make_cutouts_report.csv")
+    report_df.to_csv(report_path, index=False)
+
+    n_ok = int((report_df["status"] == "ok").sum()) if len(report_df) else 0
+    n_total = len(report_df)
+    logger.info(
+        f"make-cutouts complete: {n_ok}/{n_total} (id, band) entries written. "
+        f"Report -> {report_path}"
+    )
+    return 0
+
+
 def _stub_subparser(subparsers: argparse._SubParsersAction, name: str, status: str) -> None:
     p = subparsers.add_parser(name, help=f"({status}) -- not yet implemented")
     p.set_defaults(func=lambda _args: _stub_run(name))
@@ -200,6 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     _add_fit_pa_subparser(subparsers)
+    _add_make_cutouts_subparser(subparsers)
     _add_reconcile_subparser(subparsers)
     _add_consensus_subparser(subparsers)
     _stub_subparser(subparsers, "download", "planned")

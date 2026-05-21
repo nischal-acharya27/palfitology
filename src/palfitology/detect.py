@@ -48,7 +48,7 @@ from typing import Literal
 
 import numpy as np
 from astropy.stats import sigma_clipped_stats
-from scipy.ndimage import label
+from scipy.ndimage import binary_dilation, label
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,10 @@ __all__ = [
     "DetectionResult",
     "DEFAULT_DETECT_SIGMA",
     "DEFAULT_DETECT_BAND",
+    "DEFAULT_CLIP_DILATE",
     "detect_source",
+    "build_detection_mask",
+    "make_clipped_cutout",
 ]
 
 # Default sigma threshold — 3σ above background, matching SExtractor's DETECT_THRESH.
@@ -64,6 +67,13 @@ DEFAULT_DETECT_SIGMA: float = 3.0
 
 # The band whose image is used to build the detection mask applied to all bands.
 DEFAULT_DETECT_BAND: str = "rSDSS"
+
+# How many pixels to dilate the binary detection mask outward when making the
+# clipped cutout.  0 = use the raw connected-component mask.  A small (1-3 px)
+# dilation keeps a thin ring of "edge" pixels alive, which prevents the
+# downstream isophote fitter from immediately running into a NaN boundary when
+# the outer ellipse approaches the source edge.
+DEFAULT_CLIP_DILATE: int = 0
 
 
 DetectStatus = Literal["ok", "no_detection"]
@@ -356,3 +366,149 @@ def detect_source(
         background_rms=float(bg_std),
         sigma_threshold=sigma_threshold,
     )
+
+
+# ---------------------------------------------------------------------------
+# V0.5: clipped-cutout generation
+# ---------------------------------------------------------------------------
+#
+# The functions below take the same sigma-clipping logic used by
+# ``detect_source`` and turn it into a *mask*, then apply that mask to the
+# input image to produce a new "clipped" cutout where pixels outside the
+# detected galaxy region are set to NaN.  The clipped cutout is written to
+# disk as a new FITS file (see ``palfitology.cutouts``) and re-used as input
+# to the PA fitter for every band.
+#
+# Design choice: NaN-fill (rather than zero or background) was chosen because
+# ``photutils.isophote`` and ``numpy.nanmean``-style operations ignore NaN
+# cleanly, so the downstream fit sees only the source pixels without any
+# stray background structure contaminating the moments.
+
+
+def build_detection_mask(
+    image: np.ndarray,
+    sigma_threshold: float = DEFAULT_DETECT_SIGMA,
+    min_npix: int = 5,
+    max_centre_offset_frac: float = 0.4,
+    dilate: int = DEFAULT_CLIP_DILATE,
+) -> tuple[np.ndarray, DetectionResult]:
+    """Return the binary mask of the central source plus a DetectionResult.
+
+    The mask is True for pixels belonging to the central detected component
+    (after optional dilation by ``dilate`` pixels) and False elsewhere.  If
+    detection fails the returned mask is all-False and the DetectionResult's
+    status is ``'no_detection'``.
+
+    This is the same logic as :func:`detect_source` but exposed in mask form
+    so it can be applied to the image to build a clipped cutout.
+    """
+    arr = np.asarray(image, dtype=float)
+    ny, nx = arr.shape
+
+    # ------------------------------------------------------------------
+    # Reuse detect_source for stats + moment-derived geometry.
+    # ------------------------------------------------------------------
+    det = detect_source(
+        arr,
+        sigma_threshold=sigma_threshold,
+        min_npix=min_npix,
+        max_centre_offset_frac=max_centre_offset_frac,
+    )
+
+    if det.status != "ok":
+        return np.zeros((ny, nx), dtype=bool), det
+
+    # ------------------------------------------------------------------
+    # Rebuild the binary mask.  We repeat the labelling here (cheap) so we
+    # don't have to refactor detect_source's internal state into the public
+    # return type.
+    # ------------------------------------------------------------------
+    threshold = det.background + sigma_threshold * det.background_rms
+    detect_mask = np.isfinite(arr) & (arr > threshold)
+    labelled, n_labels = label(detect_mask)
+
+    if n_labels == 0:
+        return np.zeros((ny, nx), dtype=bool), det
+
+    # The "central" component is the one whose centroid lies closest to
+    # ``(det.x0, det.y0)`` — that's exactly the one detect_source picked.
+    best_label = None
+    best_dist = float("inf")
+    for lbl in range(1, n_labels + 1):
+        comp = labelled == lbl
+        if comp.sum() < min_npix:
+            continue
+        ys_comp, xs_comp = np.where(comp)
+        dist = np.hypot(xs_comp.mean() - det.x0, ys_comp.mean() - det.y0)
+        if dist < best_dist:
+            best_dist = dist
+            best_label = lbl
+
+    if best_label is None:
+        return np.zeros((ny, nx), dtype=bool), det
+
+    mask = labelled == best_label
+
+    if dilate > 0:
+        mask = binary_dilation(mask, iterations=int(dilate))
+
+    return mask, det
+
+
+def make_clipped_cutout(
+    image: np.ndarray,
+    sigma_threshold: float = DEFAULT_DETECT_SIGMA,
+    min_npix: int = 5,
+    max_centre_offset_frac: float = 0.4,
+    dilate: int = DEFAULT_CLIP_DILATE,
+    fill_value: float = float("nan"),
+) -> tuple[np.ndarray, np.ndarray, DetectionResult]:
+    """Sigma-clip an image and return a NaN-outside clipped cutout.
+
+    Parameters
+    ----------
+    image : 2D float array
+        The input cutout (typically the rSDSS band).
+    sigma_threshold : float
+        Threshold above background (in sigma) used to build the detection
+        mask.  Default 3.0.
+    min_npix, max_centre_offset_frac
+        Forwarded to :func:`build_detection_mask` — see that function.
+    dilate : int
+        Number of pixels to dilate the binary mask outward before applying
+        it.  0 = no dilation.  Useful when the downstream isophote fit
+        needs a little breathing room around the source edge.
+    fill_value : float
+        Value to write into pixels *outside* the detected source.  Defaults
+        to ``NaN`` so photutils ignores them cleanly.
+
+    Returns
+    -------
+    clipped : 2D float array
+        Same shape as ``image``: pixel values are preserved inside the
+        detection mask, replaced by ``fill_value`` outside.
+    mask : 2D bool array
+        The mask itself (True = source pixel kept, False = clipped).
+    det : DetectionResult
+        The underlying detection result (status, centroid, moments, etc.).
+
+    Notes
+    -----
+    * If detection fails (status='no_detection') the returned cutout is
+      *entirely* ``fill_value`` and ``mask`` is all-False.  The pipeline
+      should treat this as "do not write a clipped FITS for this object"
+      so the original cutout remains the source of truth.
+    * The input image is **never** modified in place; a fresh ndarray is
+      always returned.
+    """
+    arr = np.asarray(image, dtype=float)
+    mask, det = build_detection_mask(
+        arr,
+        sigma_threshold=sigma_threshold,
+        min_npix=min_npix,
+        max_centre_offset_frac=max_centre_offset_frac,
+        dilate=dilate,
+    )
+
+    clipped = np.where(mask, arr, fill_value).astype(float, copy=True)
+    return clipped, mask, det
