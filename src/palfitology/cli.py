@@ -5,6 +5,7 @@ Exposes subcommands, one per pipeline stage:
     palfitology fit-pa        -- per-band isophotal PA fit + diagnostics
     palfitology make-cutouts  -- sigma-clipped cutouts (mask from rSDSS, applied
                                   to one or more bands) written next to originals
+    palfitology summarize-cutouts -- per-object raw|clipped 12-band diagnostic PNG
     palfitology download      -- (planned) fetch J-PLUS cutouts + PSFs
     palfitology consensus     -- (planned) cross-band PA consensus + flagging
     palfitology galfit        -- (planned) emit GALFIT input files
@@ -42,7 +43,7 @@ from .catalog import (  # noqa: E402
     load_catalog,
 )
 from .consensus import _add_consensus_subparser  # noqa: E402
-from .cutouts import make_cutouts_for_catalog  # noqa: E402
+from .cutouts import make_cutouts_for_catalog, summarize_catalog_clipped_cutouts  # noqa: E402
 from .pipeline import fit_catalog  # noqa: E402
 from .reconcile import _add_reconcile_subparser  # noqa: E402
 
@@ -315,6 +316,112 @@ def _cmd_make_cutouts(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_summarize_cutouts_subparser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "summarize-cutouts",
+        help="Render per-object raw|clipped diagnostic PNGs (one per object).",
+        description=(
+            "For every object in the catalog (or first --limit rows), write a "
+            "<id>_clipped_summary.png that shows each band's raw cutout next "
+            "to its sigma-clipped sibling.  Pixels masked out by the rSDSS "
+            "detection render in crimson on the clipped panel so you can see "
+            "the mask boundary at a glance.  Use this to QC the output of "
+            "'palfitology make-cutouts' before wiring fit-pa to consume it."
+        ),
+    )
+    p.add_argument("--images-root", type=Path, default=None,
+                   help="Folder containing one subfolder per object (default: ./images).")
+    p.add_argument("--catalog", type=Path, default=None,
+                   help="Input catalog CSV. If omitted, auto-discover a single .csv in cwd.")
+    p.add_argument("--bands", nargs="+", default=ALL_BANDS,
+                   help=f"Bands to include in the mosaic (default: all 12 = {' '.join(ALL_BANDS)}).")
+    p.add_argument("--detect-band", type=str, default=DEFAULT_DETECT_BAND,
+                   help=f"Band used to re-derive the detection bounding box (default: {DEFAULT_DETECT_BAND}).")
+    p.add_argument("--detect-sigma", type=float, default=DEFAULT_DETECT_SIGMA,
+                   help=f"Sigma threshold used when re-running detection (default: {DEFAULT_DETECT_SIGMA}).")
+    p.add_argument("--limit", type=int, default=10,
+                   help="Process only the first N objects (default: 10). Use --all for the full catalog.")
+    p.add_argument("--all", action="store_true", help="Shortcut for unlimited objects.")
+    p.add_argument("--out-dir", type=Path, default=None,
+                   help="Where to write the PNGs (default: ./clipped_summaries).")
+    p.add_argument("--report", type=Path, default=None,
+                   help="Per-object status CSV (default: <out-dir>/summarize_cutouts_report.csv).")
+    p.add_argument("--debug", action="store_true", help="Verbose logging.")
+    p.set_defaults(func=_cmd_summarize_cutouts)
+
+
+def _cmd_summarize_cutouts(args: argparse.Namespace) -> int:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    cwd = Path.cwd()
+    images_root = args.images_root or (cwd / "images")
+    out_dir = args.out_dir or (cwd / "clipped_summaries")
+
+    if args.catalog is None:
+        try:
+            args.catalog = auto_discover_catalog(cwd)
+        except (FileNotFoundError, ValueError) as e:
+            logger.error(str(e))
+            return 1
+        logger.info(f"Auto-discovered catalog: {args.catalog.name}")
+
+    if not args.catalog.is_file():
+        logger.error(f"Catalog not found: {args.catalog}")
+        return 1
+    if not images_root.is_dir():
+        logger.error(f"Images root not found: {images_root}")
+        return 1
+
+    unknown_bands = [b for b in args.bands if b not in ALL_BANDS]
+    if unknown_bands:
+        logger.warning(
+            f"Bands not in the canonical J-PLUS list: {unknown_bands}. "
+            f"summarize-cutouts will still look for <band>_cutout.fits matching those names."
+        )
+
+    try:
+        df = load_catalog(args.catalog)
+    except ValueError as e:
+        logger.error(str(e))
+        return 1
+
+    df = filter_to_existing_image_dirs(df, images_root)
+
+    limit = 0 if args.all else args.limit
+    if limit and limit > 0:
+        df = df.head(limit)
+        logger.info(f"Limiting to first {limit} objects for this run")
+
+    logger.info(
+        f"summarize-cutouts: {len(df)} objects, bands={args.bands}, "
+        f"detect-band={args.detect_band}, sigma={args.detect_sigma} -> {out_dir}"
+    )
+
+    rows = summarize_catalog_clipped_cutouts(
+        images_root=images_root,
+        catalog=df,
+        bands=args.bands,
+        out_dir=out_dir,
+        detect_band=args.detect_band,
+        sigma_threshold=args.detect_sigma,
+    )
+
+    import pandas as pd  # local import keeps top-of-file slim
+
+    report_df = pd.DataFrame(rows, columns=["id", "status", "out_path"])
+    report_path = args.report or (out_dir / "summarize_cutouts_report.csv")
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_df.to_csv(report_path, index=False)
+
+    n_ok = int((report_df["status"] == "ok").sum()) if len(report_df) else 0
+    logger.info(
+        f"summarize-cutouts complete: {n_ok}/{len(report_df)} object PNGs written. "
+        f"Report -> {report_path}"
+    )
+    return 0
+
+
 def _stub_subparser(subparsers: argparse._SubParsersAction, name: str, status: str) -> None:
     p = subparsers.add_parser(name, help=f"({status}) -- not yet implemented")
     p.set_defaults(func=lambda _args: _stub_run(name))
@@ -339,6 +446,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_fit_pa_subparser(subparsers)
     _add_make_cutouts_subparser(subparsers)
+    _add_summarize_cutouts_subparser(subparsers)
     _add_reconcile_subparser(subparsers)
     _add_consensus_subparser(subparsers)
     _stub_subparser(subparsers, "download", "planned")

@@ -55,6 +55,8 @@ __all__ = [
     "locate_clipped_or_original",
     "make_cutouts_for_catalog",
     "ClipReport",
+    "summarize_object_clipped_cutouts",
+    "summarize_catalog_clipped_cutouts",
 ]
 
 
@@ -408,3 +410,143 @@ def make_cutouts_for_catalog(
             ))
 
     return reports
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic mosaic: raw | clipped side-by-side per band
+# ---------------------------------------------------------------------------
+
+from .detect import DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA, detect_source  # noqa: E402
+
+
+def summarize_object_clipped_cutouts(
+    *,
+    image_dir: Path,
+    bands: Iterable[str],
+    out_path: Path,
+    detect_band: str = DEFAULT_DETECT_BAND,
+    sigma_threshold: float = DEFAULT_DETECT_SIGMA,
+) -> str:
+    """Render a raw|clipped diagnostic mosaic for one object.
+
+    Reads each band's raw cutout from ``fits_images_*/<band>_cutout.fits`` and
+    its clipped sibling from ``clipped_cutouts_*/<band>_cutout.fits``.  Bands
+    missing in either set get a "missing" placeholder panel.
+
+    The detection context (sigma threshold, background, RMS) is recovered by
+    re-running :func:`detect_source` on the ``detect_band`` raw cutout — that
+    lets the cropper share the same bounding box across every panel.  We
+    re-derive instead of trusting the HISTORY records so this function works
+    even on clipped FITS produced by an older version of palfitology.
+
+    Returns
+    -------
+    str
+        A short status code: 'ok' if the figure was written, 'no_clipped' if
+        no clipped folder exists for this object, 'no_detect_band' if the
+        detect-band raw cutout was missing.
+    """
+    # Late imports to avoid circular references and keep import cost low for
+    # consumers that don't touch the plotting path.
+    from .images import locate_band_fits
+    from .plots import make_clipped_summary
+
+    bands = list(bands)
+
+    # Probe for at least one clipped FITS — if none exist, bail out cleanly.
+    any_clipped = any(locate_clipped_band_fits(image_dir, b) is not None for b in bands)
+    if not any_clipped:
+        logger.debug(
+            f"[{image_dir.name}] no clipped_cutouts_*/ FITS found -- skipping summary"
+        )
+        return "no_clipped"
+
+    # Recover the detection context from the detect-band raw cutout.
+    detect_path = locate_band_fits(image_dir, detect_band)
+    det = None
+    if detect_path is not None:
+        try:
+            with fits.open(detect_path) as hdul:
+                det_data = hdul[0].data.astype(float)
+            det = detect_source(det_data, sigma_threshold=sigma_threshold)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                f"[{image_dir.name}] could not re-run detection on {detect_path}: {exc}"
+            )
+
+    band_raw: dict = {}
+    band_clipped: dict = {}
+    for band in bands:
+        raw_path = locate_band_fits(image_dir, band)
+        clipped_path = locate_clipped_band_fits(image_dir, band)
+        band_raw[band] = _safe_open(raw_path) if raw_path is not None else None
+        band_clipped[band] = _safe_open(clipped_path) if clipped_path is not None else None
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    make_clipped_summary(
+        objectid=image_dir.name,
+        band_raw=band_raw,
+        band_clipped=band_clipped,
+        bands_order=bands,
+        out_path=out_path,
+        detect_result=det,
+        detect_band=detect_band,
+    )
+    logger.info(f"[{image_dir.name}] clipped summary -> {out_path}")
+    return "ok"
+
+
+def summarize_catalog_clipped_cutouts(
+    *,
+    images_root: Path,
+    catalog: "pd.DataFrame",
+    bands: Iterable[str],
+    out_dir: Path,
+    detect_band: str = DEFAULT_DETECT_BAND,
+    sigma_threshold: float = DEFAULT_DETECT_SIGMA,
+) -> List[dict]:
+    """Render a raw|clipped mosaic for every object in ``catalog``.
+
+    One PNG per object lands in ``out_dir`` as ``<id>_clipped_summary.png``.
+    Returns a list of dicts ``{id, status, out_path}`` so the CLI can write
+    a small report.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bands = list(bands)
+    rows: List[dict] = []
+    for _, row in catalog.iterrows():
+        objectid = str(row["id"])
+        image_dir = images_root / objectid
+        out_path = out_dir / f"{objectid}_clipped_summary.png"
+        if not image_dir.is_dir():
+            logger.debug(f"[{objectid}] object directory missing -- skipping")
+            rows.append({"id": objectid, "status": "missing_object", "out_path": ""})
+            continue
+        try:
+            status = summarize_object_clipped_cutouts(
+                image_dir=image_dir,
+                bands=bands,
+                out_path=out_path,
+                detect_band=detect_band,
+                sigma_threshold=sigma_threshold,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"[{objectid}] summary failed: {exc}")
+            rows.append({"id": objectid, "status": "failed", "out_path": ""})
+            continue
+        rows.append({
+            "id": objectid,
+            "status": status,
+            "out_path": str(out_path) if status == "ok" else "",
+        })
+    return rows
+
+
+def _safe_open(path: Path) -> Optional[np.ndarray]:
+    """Open a FITS path and return float data, or None on any error."""
+    try:
+        with fits.open(path) as hdul:
+            return hdul[0].data.astype(float)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Failed to open {path}: {exc}")
+        return None
