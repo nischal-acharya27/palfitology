@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+from .cutouts import locate_clipped_or_original
 from .detect import DEFAULT_DETECT_BAND, DEFAULT_DETECT_SIGMA, DetectionResult, detect_source
 from .fit import FitCandidate, fit_pa_with_fallbacks
 from .images import locate_band_fits, locate_band_psf
@@ -45,6 +46,9 @@ RESULT_COLUMNS = [
     "psf_mode", "psf_fwhm_pixels",
     # V0.4 detection columns (populated from the r-band detection pass)
     "detect_status", "detect_npix", "detect_sigma",
+    # V0.6: which cutout the fit actually consumed
+    # ('clipped' = NaN-masked sibling, 'original' = raw, 'missing' = neither).
+    "cutout_source",
 ]
 
 
@@ -64,6 +68,7 @@ def _missing_row(objectid: str, band: str, eps_prior: float, pa_prior: float,
         "is_imputed": 0, "status": status,
         "psf_mode": "none", "psf_fwhm_pixels": np.nan,
         "detect_status": "unknown", "detect_npix": 0, "detect_sigma": np.nan,
+        "cutout_source": "missing",
     }
 
 
@@ -108,6 +113,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
     psf_gate = task.get("psf_gate", DEFAULT_PSF_GATE)
     r_eff_pixels = task.get("r_eff_pixels", float("nan"))
     detect_result: Optional[DetectionResult] = task.get("detect_result", None)
+    use_clipped_cutouts: bool = bool(task.get("use_clipped_cutouts", False))
 
     obj_out_dir = output_dir / objectid
     obj_out_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +123,15 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning(f"[{objectid}/{band}] object directory missing, skipping")
         return _missing_row(objectid, band, eps_prior, pa_prior, "missing")
 
-    fits_file = locate_band_fits(image_path, band)
+    # V0.6: when --use-clipped-cutouts is on, prefer the NaN-masked sibling
+    # produced by `palfitology make-cutouts`.  Falls back to the original
+    # raw cutout if no clipped folder exists for this object.
+    if use_clipped_cutouts:
+        fits_file, cutout_source = locate_clipped_or_original(image_path, band)
+    else:
+        fits_file = locate_band_fits(image_path, band)
+        cutout_source = "original" if fits_file is not None else "missing"
+
     if fits_file is None:
         logger.debug(f"[{objectid}/{band}] no cutout, skipping band")
         return _missing_row(objectid, band, eps_prior, pa_prior, "missing")
@@ -255,6 +269,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
             "detect_status": detect_status,
             "detect_npix": detect_npix,
             "detect_sigma": detect_sigma_val,
+            "cutout_source": cutout_source,
         }
     y_shape, x_shape = data.shape
     return {
@@ -274,6 +289,7 @@ def process_one_band(task: Dict[str, Any]) -> Dict[str, Any]:
         "detect_status": detect_status,
         "detect_npix": detect_npix,
         "detect_sigma": detect_sigma_val,
+        "cutout_source": cutout_source,
     }
 
 
@@ -405,6 +421,7 @@ def fit_catalog(
     psf_gate: float = DEFAULT_PSF_GATE,
     detect_sigma: float = DEFAULT_DETECT_SIGMA,
     detect_band: str = DEFAULT_DETECT_BAND,
+    use_clipped_cutouts: bool = False,
 ) -> pd.DataFrame:
     """Fit every (object, band) pair in `catalog` and write outputs to `output_dir`.
 
@@ -429,6 +446,11 @@ def fit_catalog(
         Which band image is used as the detection master.  Default 'rSDSS'.
         Must be a band present in ``bands``; if not found for a given object,
         detection is silently skipped and the fit falls back to catalog priors.
+    use_clipped_cutouts
+        V0.6+: when True, each worker reads from ``clipped_cutouts_<ra>_<dec>/``
+        when present and falls back to the original cutout otherwise.  The
+        per-row ``cutout_source`` column records which one was used.  Default
+        False so behaviour matches v0.5.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -498,6 +520,7 @@ def fit_catalog(
                 "psf_gate": psf_gate,
                 "r_eff_pixels": r_eff_pixels,
                 "detect_result": det_result,
+                "use_clipped_cutouts": use_clipped_cutouts,
             })
 
     logger.info(

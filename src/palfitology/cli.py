@@ -106,6 +106,14 @@ def _add_fit_pa_subparser(subparsers: argparse._SubParsersAction) -> None:
                        f"Band used as the detection master image (default: {DEFAULT_DETECT_BAND}). "
                        f"Its sigma-clipped mask seeds the ellipse geometry for all bands."
                    ))
+    p.add_argument("--use-clipped-cutouts", action="store_true",
+                   help=(
+                       "Read FITS data from clipped_cutouts_<ra>_<dec>/ when present "
+                       "(produced by 'palfitology make-cutouts').  Falls back to the "
+                       "original raw cutout for any (object, band) where no clipped "
+                       "sibling exists.  The CSV records which source was used in the "
+                       "'cutout_source' column."
+                   ))
     p.add_argument("--debug", action="store_true",
                    help="Verbose per-attempt logging.")
     p.set_defaults(func=_cmd_fit_pa)
@@ -172,6 +180,7 @@ def _cmd_fit_pa(args: argparse.Namespace) -> int:
         psf_gate=args.psf_gate,
         detect_sigma=args.detect_sigma,
         detect_band=args.detect_band,
+        use_clipped_cutouts=args.use_clipped_cutouts,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
