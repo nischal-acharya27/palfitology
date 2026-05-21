@@ -43,3 +43,5 @@ psfs/
 # Generated decks -- rebuild from docs/architecture.json via build_deck_v2.js
 # (kept out of git so the repo stays text-only)
 *.pptx
+notebooks/demo_data/
+notebooks/demo_data_old_*
