@@ -257,13 +257,24 @@ def make_summary_mosaic(
     fig, axes = plt.subplots(nrows, ncols, figsize=(3.2 * ncols, 3.4 * nrows))
     axes = np.atleast_2d(axes).reshape(nrows, ncols)
 
-    # Compute a single crop geometry from the first band that has data.
-    # We use detect_result against whichever band array is available so all
-    # panels share the same spatial window.
+    # Compute a single crop slice from the first band that has data, and apply
+    # the SAME slice to every band so all 12 panels share an identical spatial
+    # window. Using _detection_crop per band re-thresholds each band's data
+    # independently, which produces per-band crop shapes (and ellipse overlays
+    # that drift off the displayed pixels). Sharing one slice fixes both.
     _ref_data = next(
         (d for d in band_data.values() if d is not None), None
     )
-    _, x_off, y_off = _detection_crop(_ref_data, detect_result) if _ref_data is not None else (None, 0, 0)
+    shared_slice = (
+        _detection_crop_slice(_ref_data, detect_result)
+        if _ref_data is not None
+        else None
+    )
+    if shared_slice is not None:
+        row_sl, col_sl = shared_slice
+        x_off, y_off = col_sl.start, row_sl.start
+    else:
+        x_off, y_off = 0, 0
 
     for i, band in enumerate(bands_order):
         ax = axes[i // ncols, i % ncols]
@@ -278,8 +289,19 @@ def make_summary_mosaic(
             ax.set_yticks([])
             continue
 
-        # Apply the shared crop (same x_off/y_off for all bands).
-        display, _, _ = _detection_crop(data, detect_result)
+        # Apply the SHARED crop slice (identical for every band) so every panel
+        # displays an array of exactly the same shape and the ellipse overlay
+        # aligns with the displayed pixels.
+        if shared_slice is not None:
+            row_sl, col_sl = shared_slice
+            # Guard against bands whose array is smaller than the reference --
+            # fall back to the uncropped data in that case (rare; missing pixels).
+            if data.shape[0] >= row_sl.stop and data.shape[1] >= col_sl.stop:
+                display = data[row_sl, col_sl]
+            else:
+                display = data
+        else:
+            display = data
 
         norm = ImageNormalize(display, interval=ZScaleInterval(), stretch=AsinhStretch())
         ax.imshow(display, origin="lower", cmap="gray_r", norm=norm)
