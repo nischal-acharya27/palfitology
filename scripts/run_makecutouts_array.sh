@@ -62,12 +62,18 @@ fi
 echo "[task $SGE_TASK_ID] make-cutouts  catalog=$CHUNK_CSV  images=$IMAGES_ROOT"
 
 # ---------------------------------------------------------------------------
-# Write the NaN-clipped FITS siblings.
-# Output lands in <images>/<id>/clipped_cutouts_<ra>_<dec>/<band>_cutout.fits
+# Write the NaN-clipped FITS siblings for EVERY band, not just the detect
+# band. Without --apply-bands all, make-cutouts only writes the rSDSS
+# clipped sibling and fit-pa --use-clipped-cutouts then falls back to raw
+# cutouts for the other 11 bands. That's exactly the "rSDSS is clipped,
+# other 11 are not" symptom we want to avoid.
+# Output: <images>/<id>/clipped_cutouts_<ra>_<dec>/<band>_cutout.fits for
+# each band in the J-PLUS canonical list.
 # ---------------------------------------------------------------------------
 palfitology make-cutouts \
     --catalog "$CHUNK_CSV" \
     --images-root "$IMAGES_ROOT" \
+    --apply-bands all \
     --all
 
 echo "[task $SGE_TASK_ID] make-cutouts done."
