@@ -1,6 +1,16 @@
 # palfitology — Session Handoff Context
 
-**Last updated: 2026-05-21 (end of day). All shipped work pushed to `origin/main`.**
+**Last updated: 2026-05-22. Baseline restored to V0.6 (commit `cd81107`).
+All shipped work pushed to `origin/main`.**
+
+> **Note (2026-05-22):** A prior session shipped a V0.6.1 NaN-fill attempt
+> and a cluster-validation doc bundle (`CLUSTER_VALIDATION_V061.md`,
+> `scripts/run_v061_validation.sh`, `VALIDATION_SUMMARY.txt`). The user
+> chose to discard that work and **start fresh from V0.6**. The three
+> commits (`ce7c296`, `d6cbccd`, `ea1dd6f`) were never pushed and have
+> been removed from `main` by hard reset; their files have been deleted
+> from the working tree. Do **not** re-introduce them verbatim — if
+> V0.6.1 is re-attempted, design it from scratch.
 
 This file is the single deterministic entry point for any future session
 (Cowork, Claude Code, Codex, etc.) picking up palfitology work. Read this
@@ -58,6 +68,7 @@ palfitology fit-pa                              # core PA fitter (V0.1+)
 palfitology fit-pa --use-clipped-cutouts        # V0.6: reads clipped FITS when present
 palfitology make-cutouts                        # V0.5: writes NaN-clipped FITS siblings
 palfitology summarize-cutouts                   # V0.5.1: per-object raw|clipped PNG
+palfitology regenerate-mosaics                  # V0.6: re-render <id>_summary.png from PA_results.csv (no re-fit)
 palfitology reconcile                           # V0.1+: catalog PA vs fitted PA
 palfitology consensus                           # V0.3: cross-band weighted mean
 ```

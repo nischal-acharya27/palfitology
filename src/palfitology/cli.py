@@ -6,8 +6,10 @@ Exposes subcommands, one per pipeline stage:
     palfitology make-cutouts  -- sigma-clipped cutouts (mask from rSDSS, applied
                                   to one or more bands) written next to originals
     palfitology summarize-cutouts -- per-object raw|clipped 12-band diagnostic PNG
+    palfitology regenerate-mosaics -- re-render summary PNGs from PA_results.csv
+                                      without re-fitting (V0.6+)
     palfitology download      -- (planned) fetch J-PLUS cutouts + PSFs
-    palfitology consensus     -- (planned) cross-band PA consensus + flagging
+    palfitology consensus     -- cross-band PA consensus + flagging
     palfitology galfit        -- (planned) emit GALFIT input files
 
 Entry point is `main`; the `palfitology` console script (from
@@ -431,6 +433,109 @@ def _cmd_summarize_cutouts(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_regenerate_mosaics_subparser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "regenerate-mosaics",
+        help="Re-render per-object 3x4 summary PNGs from an existing PA_results.csv.",
+        description=(
+            "Reads a PA_results.csv produced by a previous `fit-pa` run, then "
+            "re-renders the per-object mosaic and the all_summaries/ copies "
+            "WITHOUT re-running the fits. Useful after a plots.py change, or "
+            "to refresh mosaics that were rendered with buggy plotting code. "
+            "Detection is re-run per object (it isn't stored in the CSV); pass "
+            "--detect-sigma 0 to skip detection and disable the shared crop."
+        ),
+    )
+    p.add_argument("--results", type=Path, default=None,
+                   help=(
+                       "Path to PA_results.csv (default: "
+                       "<output-dir>/PA_results.csv)."
+                   ))
+    p.add_argument("--images-root", type=Path, default=None,
+                   help="Folder containing one subfolder per object (default: ./images).")
+    p.add_argument("--output-dir", type=Path, default=None,
+                   help=(
+                       "Where to write the regenerated mosaics. Typically the "
+                       "same as the original fit-pa --output-dir so the buggy "
+                       "PNGs are overwritten in place (default: ./fitted_pa_images)."
+                   ))
+    p.add_argument("--bands", nargs="+", default=None,
+                   help=(
+                       "Canonical band order for the 3x4 grid. If omitted, "
+                       "the order is inferred from the CSV's unique band values."
+                   ))
+    p.add_argument("--workers", type=int, default=1,
+                   help="Number of parallel worker processes. 0 = os.cpu_count().")
+    p.add_argument("--detect-sigma", type=float, default=DEFAULT_DETECT_SIGMA,
+                   help=(
+                       f"Sigma threshold for re-running detection per object "
+                       f"(default: {DEFAULT_DETECT_SIGMA}). Set to 0 to skip "
+                       f"detection -- panels render uncropped."
+                   ))
+    p.add_argument("--detect-band", type=str, default=DEFAULT_DETECT_BAND,
+                   help=f"Band used to re-derive the crop window (default: {DEFAULT_DETECT_BAND}).")
+    p.add_argument("--debug", action="store_true", help="Verbose logging.")
+    p.set_defaults(func=_cmd_regenerate_mosaics)
+
+
+def _cmd_regenerate_mosaics(args: argparse.Namespace) -> int:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    if args.workers == 0:
+        args.workers = os.cpu_count() or 1
+
+    cwd = Path.cwd()
+    images_root = args.images_root or (cwd / "images")
+    output_dir = args.output_dir or (cwd / "fitted_pa_images")
+    results_csv = args.results or (output_dir / "PA_results.csv")
+
+    if not results_csv.is_file():
+        logger.error(f"Results CSV not found: {results_csv}")
+        return 1
+    if not images_root.is_dir():
+        logger.error(f"Images root not found: {images_root}")
+        return 1
+
+    if args.bands is not None:
+        unknown_bands = [b for b in args.bands if b not in ALL_BANDS]
+        if unknown_bands:
+            logger.warning(
+                f"Bands not in the canonical J-PLUS list: {unknown_bands}. "
+                f"regenerate-mosaics will still honour the order you passed."
+            )
+
+    logger.info(
+        f"regenerate-mosaics: results={results_csv}  images={images_root}  "
+        f"output={output_dir}  workers={args.workers}  "
+        f"detect-sigma={args.detect_sigma}"
+    )
+
+    from .pipeline import regenerate_mosaics_from_csv
+
+    try:
+        summary = regenerate_mosaics_from_csv(
+            results_csv=results_csv,
+            images_root=images_root,
+            output_dir=output_dir,
+            bands=args.bands,
+            workers=args.workers,
+            detect_sigma=args.detect_sigma,
+            detect_band=args.detect_band,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        logger.error(str(exc))
+        return 1
+
+    if summary["errors"]:
+        logger.warning(
+            f"{summary['errors']} object(s) failed to render -- "
+            f"see warnings above"
+        )
+        return 1
+    return 0
+
+
 def _stub_subparser(subparsers: argparse._SubParsersAction, name: str, status: str) -> None:
     p = subparsers.add_parser(name, help=f"({status}) -- not yet implemented")
     p.set_defaults(func=lambda _args: _stub_run(name))
@@ -456,6 +561,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_fit_pa_subparser(subparsers)
     _add_make_cutouts_subparser(subparsers)
     _add_summarize_cutouts_subparser(subparsers)
+    _add_regenerate_mosaics_subparser(subparsers)
     _add_reconcile_subparser(subparsers)
     _add_consensus_subparser(subparsers)
     _stub_subparser(subparsers, "download", "planned")

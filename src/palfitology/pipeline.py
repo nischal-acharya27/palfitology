@@ -23,7 +23,7 @@ import logging
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -605,3 +605,206 @@ def fit_catalog(
                                 band_order.get(r["band"], 1 << 30)))
 
     return pd.DataFrame(results, columns=RESULT_COLUMNS)
+
+
+# ---------------------------------------------------------------------------
+# regenerate-mosaics: re-render all_summaries/*.png from an existing CSV
+# ---------------------------------------------------------------------------
+#
+# Useful after a plots.py change (or after the user notices a rendering bug
+# in already-completed mosaics).  Skips re-fitting entirely: every PA, SMA,
+# eps, etc. is taken from the CSV.  Only detection has to be re-run because
+# DetectionResult isn't stored in the CSV.
+
+def _regenerate_one_object(task: Dict[str, Any]) -> Tuple[str, str]:
+    """Worker: re-render one object's mosaic from its CSV rows.
+
+    Returns ``(objectid, status)`` where status is 'rendered', 'no_data',
+    or 'error: <reason>'.
+    """
+    objectid: str = task["objectid"]
+    rows: List[Dict[str, Any]] = task["rows"]
+    bands_order: List[str] = task["bands_order"]
+    output_dir: Path = task["output_dir"]
+    all_summaries_dir: Path = task["all_summaries_dir"]
+    images_root: Path = task["images_root"]
+    detect_band: str = task["detect_band"]
+    detect_sigma: float = task["detect_sigma"]
+    use_detection: bool = task["use_detection"]
+
+    # Sanity check: do we have any rows with a usable fits_path?
+    if not any(r.get("fits_path") for r in rows):
+        return objectid, "no_data"
+
+    detect_result = None
+    if use_detection:
+        try:
+            detect_result = _run_detection_for_object(
+                objectid=objectid,
+                images_root=images_root,
+                detect_band=detect_band,
+                detect_sigma=detect_sigma,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[{objectid}] detection failed: {exc}")
+            detect_result = None
+
+    try:
+        _render_object_summary(
+            objectid=objectid,
+            rows=rows,
+            bands_order=bands_order,
+            output_dir=output_dir,
+            all_summaries_dir=all_summaries_dir,
+            detect_result=detect_result,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return objectid, f"error: {exc}"
+
+    return objectid, "rendered"
+
+
+def regenerate_mosaics_from_csv(
+    results_csv: Path,
+    images_root: Path,
+    output_dir: Path,
+    bands: Optional[List[str]] = None,
+    workers: int = 1,
+    detect_sigma: float = DEFAULT_DETECT_SIGMA,
+    detect_band: str = DEFAULT_DETECT_BAND,
+) -> Dict[str, int]:
+    """Re-render every per-object mosaic from an existing ``PA_results.csv``.
+
+    Reads ``results_csv``, groups by ``id``, and for each object reconstructs
+    the row dicts that ``_render_object_summary`` needs (this is the same
+    contract ``fit-pa`` uses internally — the CSV is a complete record of
+    everything the mosaic needs **except** the detection result, which is
+    re-derived from the rSDSS cutout).
+
+    Outputs:
+        ``output_dir/<id>/<id>_summary.png``           (per-object)
+        ``output_dir/all_summaries/<id>_summary.png``  (central copy)
+
+    Parameters
+    ----------
+    results_csv
+        Path to ``PA_results.csv`` produced by ``fit-pa``.
+    images_root
+        Folder containing one subfolder per object (same one used by ``fit-pa``).
+    output_dir
+        Where to write the per-object folders and ``all_summaries/``. Typically
+        the same as the original ``fit-pa --output-dir`` so the mosaics
+        overwrite the buggy ones in place.
+    bands
+        Canonical band order for the 3x4 grid. ``None`` -> infer from the CSV's
+        unique band values, preserving first-appearance order.
+    workers
+        Number of parallel worker processes. ``<= 1`` runs serially.
+    detect_sigma, detect_band
+        Detection parameters used to re-derive the crop window. Must match
+        what ``fit-pa`` was originally called with for the mosaics to be
+        bit-identical to the originals.
+
+    Returns
+    -------
+    dict
+        ``{'rendered': N, 'no_data': N, 'errors': N}`` summary.
+    """
+    if not results_csv.is_file():
+        raise FileNotFoundError(f"Results CSV not found: {results_csv}")
+    if not images_root.is_dir():
+        raise FileNotFoundError(f"Images root not found: {images_root}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    all_summaries_dir = output_dir / "all_summaries"
+    all_summaries_dir.mkdir(parents=True, exist_ok=True)
+
+    df = pd.read_csv(results_csv)
+
+    required = {"id", "band", "status"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"CSV {results_csv} is missing required columns: {sorted(missing)}"
+        )
+
+    # Replace NaN smoothing_sigma with 0.0 so FitCandidate construction
+    # (which doesn't accept NaN there) doesn't blow up.
+    if "smoothing_sigma" in df.columns:
+        df["smoothing_sigma"] = df["smoothing_sigma"].fillna(0.0)
+    if "fits_path" in df.columns:
+        df["fits_path"] = df["fits_path"].fillna("")
+
+    # Preserve first-appearance band order for the 3x4 grid.
+    if bands is None:
+        bands = list(dict.fromkeys(df["band"].tolist()))
+
+    use_detection = detect_sigma > 0
+
+    object_ids = list(dict.fromkeys(df["id"].astype(str).tolist()))
+
+    # Build per-object task dicts. Each carries enough state to re-render
+    # without re-reading the CSV in the worker.
+    tasks: List[Dict[str, Any]] = []
+    for oid in object_ids:
+        sub = df[df["id"].astype(str) == oid]
+        rows = sub.to_dict(orient="records")
+        tasks.append({
+            "objectid":          oid,
+            "rows":              rows,
+            "bands_order":       bands,
+            "output_dir":        output_dir,
+            "all_summaries_dir": all_summaries_dir,
+            "images_root":       images_root,
+            "detect_band":       detect_band,
+            "detect_sigma":      detect_sigma,
+            "use_detection":     use_detection,
+        })
+
+    logger.info(
+        f"Regenerating mosaics for {len(tasks)} object(s) "
+        f"using {workers} worker(s); detect={'on' if use_detection else 'off'}"
+    )
+
+    summary = {"rendered": 0, "no_data": 0, "errors": 0}
+
+    def _account(status: str) -> None:
+        if status == "rendered":
+            summary["rendered"] += 1
+        elif status == "no_data":
+            summary["no_data"] += 1
+        else:
+            summary["errors"] += 1
+
+    if workers <= 1:
+        for task in tasks:
+            oid, status = _regenerate_one_object(task)
+            _account(status)
+            if status.startswith("error"):
+                logger.error(f"[{oid}] {status}")
+            elif status == "no_data":
+                logger.warning(f"[{oid}] no rows with a usable fits_path -- skipping")
+    else:
+        with ProcessPoolExecutor(
+            max_workers=workers, initializer=_worker_init
+        ) as pool:
+            futures = {pool.submit(_regenerate_one_object, t): t["objectid"]
+                       for t in tasks}
+            for fut in as_completed(futures):
+                oid = futures[fut]
+                try:
+                    _, status = fut.result()
+                except Exception as exc:  # noqa: BLE001
+                    logger.error(f"[{oid}] worker crashed: {exc}")
+                    status = f"error: {exc}"
+                _account(status)
+                if status.startswith("error"):
+                    logger.error(f"[{oid}] {status}")
+                elif status == "no_data":
+                    logger.warning(f"[{oid}] no rows with a usable fits_path -- skipping")
+
+    logger.info(
+        f"regenerate-mosaics done: rendered={summary['rendered']} "
+        f"no_data={summary['no_data']} errors={summary['errors']}"
+    )
+    return summary
