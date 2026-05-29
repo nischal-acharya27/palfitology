@@ -423,7 +423,7 @@ palfitology consensus                  # one PA per object across the 12 bands
 ```
 
 For a real cluster run, see `scripts/submit_all.sh` and the architecture
-map at <https://nisach02.github.io/palfitology/>.
+map at <https://nischal-acharya27.github.io/palfitology/>.
 """))
 
 

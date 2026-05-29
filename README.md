@@ -18,11 +18,11 @@ galaxies in parallel on a multi-core node.
 
 ## Documentation
 
-- **[Architecture map](https://nisach02.github.io/palfitology/)** — interactive
+- **[Architecture map](https://nischal-acharya27.github.io/palfitology/)** — interactive
   single-page diagram of every module, its dependencies, the data flows, ADRs,
   CSV schemas, and the V0.2/V0.3 cluster run results. Click any module for its
   file path, public symbols, and tests. `Cmd/Ctrl + K` opens a command palette.
-- **[`docs/architecture.json`](https://nisach02.github.io/palfitology/architecture.json)** —
+- **[`docs/architecture.json`](https://nischal-acharya27.github.io/palfitology/architecture.json)** —
   machine-readable architecture spec the page above consumes; suitable for AI
   coding agents and other tooling.
 - **[`docs/design.md`](docs/design.md)** — rationale behind the isophote selection rule.
@@ -52,7 +52,7 @@ priors as the initial guess. This is the next planned upgrade.
 From source (recommended while in development):
 
 ```bash
-git clone https://github.com/nisach02/palfitology.git
+git clone https://github.com/nischal-acharya27/palfitology.git
 cd palfitology
 pip install -e .
 ```

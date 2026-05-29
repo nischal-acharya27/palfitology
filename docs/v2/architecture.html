@@ -760,7 +760,7 @@
     <!-- 12 — Roadmap -->
     <section class="s" id="roadmap">
       <div class="s-head"><span class="num">/12</span><h2>Roadmap</h2></div>
-      <p class="s-lede">v0.1 to v0.5.</p>
+      <p class="s-lede">v0.1 to v0.6 (cluster validation in progress).</p>
       <div class="roadmap" id="roadmap-host"></div>
 
       <div class="card" style="margin-top: 28px;">
@@ -804,18 +804,20 @@
   "$schema": "https://palfitology.dev/architecture.schema.v2.json",
   "meta": {
     "package": "palfitology",
-    "version": "0.3.0.dev0",
+    "version": "0.6.0.dev0",
     "branch": "main",
     "tagline": "PSF-aware isophotal PA fitting and GALFIT prep for J-PLUS multi-band galaxy cutouts",
-    "generated_at": "2026-05-20",
-    "loc_total": 2474,
-    "loc_tests": 938,
-    "loc_scripts": 800,
-    "test_count": 67,
-    "languages": ["Python 3.11", "Bash"],
+    "generated_at": "2026-05-22",
+    "loc_total": 4671,
+    "loc_tests": 2467,
+    "loc_scripts": 1074,
+    "test_count": 126,
+    "languages": [
+      "Python 3.11",
+      "Bash"
+    ],
     "license": "MIT"
   },
-
   "tech_stack": {
     "runtime": {
       "python": ">=3.10 (cluster: 3.11)",
@@ -842,48 +844,114 @@
     },
     "scheduler": "SGE (CEFCA hpc-login), 40 cores/node",
     "version_control": {
-      "remote": "https://github.com/nisach02/palfitology",
+      "remote": "https://github.com/nischal-acharya27/palfitology",
       "current_branch": "feature/v0.2-psf",
       "main_branch": "main"
     }
   },
-
   "entry_points": {
     "console_script": {
       "name": "palfitology",
       "module": "palfitology.cli:main",
-      "subcommands": ["fit-pa", "reconcile", "download", "consensus", "galfit"]
+      "subcommands": [
+        "fit-pa",
+        "make-cutouts",
+        "summarize-cutouts",
+        "regenerate-mosaics",
+        "reconcile",
+        "consensus",
+        "download",
+        "galfit"
+      ]
     },
     "python_api": [
-      {"symbol": "palfitology.fit_catalog",          "module": "palfitology.pipeline",  "kind": "function"},
-      {"symbol": "palfitology.fit_pa_with_fallbacks","module": "palfitology.fit",       "kind": "function"},
-      {"symbol": "palfitology.preprocess_for_fit",   "module": "palfitology.psf",       "kind": "function"},
-      {"symbol": "palfitology.FitCandidate",         "module": "palfitology.fit",       "kind": "dataclass"},
-      {"symbol": "palfitology.PSFInfo",              "module": "palfitology.psf",       "kind": "dataclass"},
-      {"symbol": "palfitology.ALL_BANDS",            "module": "palfitology",           "kind": "constant"}
+      {
+        "symbol": "palfitology.fit_catalog",
+        "module": "palfitology.pipeline",
+        "kind": "function"
+      },
+      {
+        "symbol": "palfitology.fit_pa_with_fallbacks",
+        "module": "palfitology.fit",
+        "kind": "function"
+      },
+      {
+        "symbol": "palfitology.preprocess_for_fit",
+        "module": "palfitology.psf",
+        "kind": "function"
+      },
+      {
+        "symbol": "palfitology.FitCandidate",
+        "module": "palfitology.fit",
+        "kind": "dataclass"
+      },
+      {
+        "symbol": "palfitology.PSFInfo",
+        "module": "palfitology.psf",
+        "kind": "dataclass"
+      },
+      {
+        "symbol": "palfitology.ALL_BANDS",
+        "module": "palfitology",
+        "kind": "constant"
+      },
+      {
+        "symbol": "palfitology.detect_source",
+        "module": "palfitology.detect",
+        "kind": "function"
+      },
+      {
+        "symbol": "palfitology.DetectionResult",
+        "module": "palfitology.detect",
+        "kind": "dataclass"
+      },
+      {
+        "symbol": "palfitology.make_cutouts_for_catalog",
+        "module": "palfitology.cutouts",
+        "kind": "function"
+      },
+      {
+        "symbol": "palfitology.regenerate_mosaics_from_csv",
+        "module": "palfitology.pipeline",
+        "kind": "function"
+      }
     ],
     "cli_invocations": [
-      "palfitology fit-pa --catalog 1638518.csv --images-root images --workers 40 --psf-mode auto --psf-gate 0.2",
+      "palfitology fit-pa --catalog 1638518.csv --images-root images --workers 40 --psf-mode auto --psf-gate 0.2 --all",
+      "palfitology make-cutouts --catalog 1638518.csv --images-root images --apply-bands all --all",
+      "palfitology fit-pa --catalog 1638518.csv --images-root images --use-clipped-cutouts --workers 40 --all",
+      "palfitology summarize-cutouts --catalog 1638518.csv --images-root images --limit 20",
+      "palfitology regenerate-mosaics --results fitted_pa_clipped/PA_results.csv --images-root images --workers 8",
+      "palfitology consensus --results fitted_pa_clipped/PA_results.csv",
       "palfitology reconcile --plot --catalog 1638518.csv",
       "palfitology --version"
     ]
   },
-
   "components": [
     {
       "id": "catalog",
       "name": "Catalog ingest",
       "module": "palfitology.catalog",
       "path": "src/palfitology/catalog.py",
-      "loc": 73,
+      "loc": 114,
       "kind": "leaf",
       "group": "ingest",
       "color": "ember",
       "icon": "table",
       "depends_on": [],
-      "depended_on_by": ["cli", "reconcile"],
-      "public_symbols": ["load_catalog", "auto_discover_catalog", "filter_to_existing_image_dirs", "REQUIRED_COLUMNS"],
-      "external_deps": ["pandas"],
+      "depended_on_by": [
+        "cli",
+        "reconcile"
+      ],
+      "public_symbols": [
+        "load_catalog",
+        "auto_discover_catalog",
+        "filter_to_existing_image_dirs",
+        "REQUIRED_COLUMNS"
+      ],
+      "external_deps": [
+        "pandas"
+      ],
       "notes": "Synthesizes id from TILE_ID-NUMBER when missing; strips '#' SQL preamble from raw ADQL exports. Required cols: id, A_WORLD, B_WORLD, pa_jplus. R_EFF (pixels) optional but needed for psf-mode auto/on."
     },
     {
@@ -897,9 +965,19 @@
       "color": "ember",
       "icon": "folder-search",
       "depends_on": [],
-      "depended_on_by": ["pipeline"],
-      "public_symbols": ["locate_band_fits", "locate_band_psf", "open_fits_array", "locate_band_with_fallback"],
-      "external_deps": ["astropy.io.fits", "numpy"],
+      "depended_on_by": [
+        "pipeline"
+      ],
+      "public_symbols": [
+        "locate_band_fits",
+        "locate_band_psf",
+        "open_fits_array",
+        "locate_band_with_fallback"
+      ],
+      "external_deps": [
+        "astropy.io.fits",
+        "numpy"
+      ],
       "notes": "Globs images/<id>/fits_images_*/<band>_cutout.fits and images/<id>/psfs_*/psf_*_<band>.fits. Returns Path or None."
     },
     {
@@ -913,9 +991,21 @@
       "color": "clay",
       "icon": "blur",
       "depends_on": [],
-      "depended_on_by": ["pipeline", "package"],
-      "public_symbols": ["preprocess_for_fit", "estimate_psf_fwhm", "wiener_deconvolve", "PSFInfo", "DEFAULT_PSF_GATE"],
-      "external_deps": ["numpy", "astropy.io.fits (lazy)"],
+      "depended_on_by": [
+        "pipeline",
+        "package"
+      ],
+      "public_symbols": [
+        "preprocess_for_fit",
+        "estimate_psf_fwhm",
+        "wiener_deconvolve",
+        "PSFInfo",
+        "DEFAULT_PSF_GATE"
+      ],
+      "external_deps": [
+        "numpy",
+        "astropy.io.fits (lazy)"
+      ],
       "v0_2_feature": true,
       "notes": "Moment-based FWHM. Wiener K = max(1e-6, (bg_RMS / dynamic_range)^2). Loader walks HDU list for first 2D image (handles PSFEx ext-1 layout). Modes: auto | on | off."
     },
@@ -930,9 +1020,15 @@
       "color": "ember",
       "icon": "filter",
       "depends_on": [],
-      "depended_on_by": ["fit"],
-      "public_symbols": ["select_isophote"],
-      "external_deps": ["numpy"],
+      "depended_on_by": [
+        "fit"
+      ],
+      "public_symbols": [
+        "select_isophote"
+      ],
+      "external_deps": [
+        "numpy"
+      ],
       "notes": "V6 rule: SMA floor max(3 px, 0.05*half_width); drop pa_err<=0 and ndata<5; min pa_err/sma score. Weak fallback to outermost surviving row."
     },
     {
@@ -945,26 +1041,49 @@
       "group": "fit",
       "color": "ember",
       "icon": "target",
-      "depends_on": ["selection"],
-      "depended_on_by": ["pipeline", "plots", "package"],
-      "public_symbols": ["fit_pa_with_fallbacks", "FitCandidate"],
-      "external_deps": ["numpy", "photutils.isophote", "scipy.ndimage.gaussian_filter"],
-      "notes": "Generates ~57 (eps, pa) configs (catalog prior, orthogonal, perpendicular, 50 MC seeds at np.random.seed(42)) × 2 smoothing levels (sigma=0, sigma=2). Returns best by score=pa_err/sma after keep_best_of=8 strong fits."
+      "depends_on": [
+        "selection"
+      ],
+      "depended_on_by": [
+        "pipeline",
+        "plots",
+        "package"
+      ],
+      "public_symbols": [
+        "fit_pa_with_fallbacks",
+        "FitCandidate"
+      ],
+      "external_deps": [
+        "numpy",
+        "photutils.isophote",
+        "scipy.ndimage.gaussian_filter"
+      ],
+      "notes": "Generates ~57 (eps, pa) configs (catalog prior, orthogonal, perpendicular, 50 MC seeds at np.random.seed(42)) \u00d7 2 smoothing levels (sigma=0, sigma=2). Returns best by score=pa_err/sma after keep_best_of=8 strong fits."
     },
     {
       "id": "plots",
       "name": "Diagnostic plotting",
       "module": "palfitology.plots",
       "path": "src/palfitology/plots.py",
-      "loc": 185,
+      "loc": 545,
       "kind": "sink",
       "group": "output",
       "color": "warm",
       "icon": "image",
-      "depends_on": ["fit"],
-      "depended_on_by": ["pipeline"],
-      "public_symbols": ["make_band_plot", "make_summary_mosaic"],
-      "external_deps": ["matplotlib.pyplot (Agg)", "astropy.visualization"],
+      "depends_on": [
+        "fit"
+      ],
+      "depended_on_by": [
+        "pipeline"
+      ],
+      "public_symbols": [
+        "make_band_plot",
+        "make_summary_mosaic"
+      ],
+      "external_deps": [
+        "matplotlib.pyplot (Agg)",
+        "astropy.visualization"
+      ],
       "notes": "ZScale + Asinh stretch. Per-band PNG with fitted ellipse + caption; 3x4 mosaic per object (red=ok, orange=weak, gray=missing)."
     },
     {
@@ -972,15 +1091,31 @@
       "name": "Pipeline orchestrator",
       "module": "palfitology.pipeline",
       "path": "src/palfitology/pipeline.py",
-      "loc": 456,
+      "loc": 810,
       "kind": "orchestrator",
       "group": "orchestrate",
       "color": "clay",
       "icon": "cpu",
-      "depends_on": ["fit", "images", "plots", "psf"],
-      "depended_on_by": ["cli", "package"],
-      "public_symbols": ["fit_catalog", "process_one_band", "RESULT_COLUMNS"],
-      "external_deps": ["concurrent.futures.ProcessPoolExecutor", "pandas", "astropy.io.fits"],
+      "depends_on": [
+        "fit",
+        "images",
+        "plots",
+        "psf"
+      ],
+      "depended_on_by": [
+        "cli",
+        "package"
+      ],
+      "public_symbols": [
+        "fit_catalog",
+        "process_one_band",
+        "RESULT_COLUMNS"
+      ],
+      "external_deps": [
+        "concurrent.futures.ProcessPoolExecutor",
+        "pandas",
+        "astropy.io.fits"
+      ],
       "notes": "ProcessPoolExecutor over per-(object, band) tasks. Incremental per-object mosaic finalization once last band returns. BLAS-thread pinning via _worker_init."
     },
     {
@@ -988,15 +1123,27 @@
       "name": "Catalog reconciliation",
       "module": "palfitology.reconcile",
       "path": "src/palfitology/reconcile.py",
-      "loc": 365,
+      "loc": 378,
       "kind": "post-process",
       "group": "output",
       "color": "ember",
       "icon": "scatter",
-      "depends_on": ["catalog"],
-      "depended_on_by": ["cli"],
-      "public_symbols": ["reconcile", "plot_reconciliation", "transform_pa_jplus", "circular_diff_deg"],
-      "external_deps": ["pandas", "matplotlib.pyplot (Agg)"],
+      "depends_on": [
+        "catalog"
+      ],
+      "depended_on_by": [
+        "cli"
+      ],
+      "public_symbols": [
+        "reconcile",
+        "plot_reconciliation",
+        "transform_pa_jplus",
+        "circular_diff_deg"
+      ],
+      "external_deps": [
+        "pandas",
+        "matplotlib.pyplot (Agg)"
+      ],
       "notes": "Walks fitted_pa_images/<id>/PA_fits.csv, joins on id. transform_pa_jplus(d) = (90 - d) mod 180 brings sky-frame PA into photutils' image frame."
     },
     {
@@ -1004,15 +1151,24 @@
       "name": "Command-line interface",
       "module": "palfitology.cli",
       "path": "src/palfitology/cli.py",
-      "loc": 207,
+      "loc": 584,
       "kind": "interface",
       "group": "interface",
       "color": "clay",
       "icon": "terminal",
-      "depends_on": ["catalog", "pipeline", "reconcile"],
+      "depends_on": [
+        "catalog",
+        "pipeline",
+        "reconcile"
+      ],
       "depended_on_by": [],
-      "public_symbols": ["main", "build_parser"],
-      "external_deps": ["argparse"],
+      "public_symbols": [
+        "main",
+        "build_parser"
+      ],
+      "external_deps": [
+        "argparse"
+      ],
       "notes": "Pins BLAS=1 BEFORE importing numpy (must happen in parent process too, not just workers). Five subcommands; two working."
     },
     {
@@ -1020,14 +1176,26 @@
       "name": "Package surface",
       "module": "palfitology.__init__",
       "path": "src/palfitology/__init__.py",
-      "loc": 41,
+      "loc": 53,
       "kind": "interface",
       "group": "interface",
       "color": "ember",
       "icon": "package",
-      "depends_on": ["fit", "pipeline", "psf"],
+      "depends_on": [
+        "fit",
+        "pipeline",
+        "psf"
+      ],
       "depended_on_by": [],
-      "public_symbols": ["__version__", "ALL_BANDS", "FitCandidate", "fit_pa_with_fallbacks", "fit_catalog", "PSFInfo", "preprocess_for_fit"],
+      "public_symbols": [
+        "__version__",
+        "ALL_BANDS",
+        "FitCandidate",
+        "fit_pa_with_fallbacks",
+        "fit_catalog",
+        "PSFInfo",
+        "preprocess_for_fit"
+      ],
       "external_deps": [],
       "notes": "12-band canonical order: uJAVA, J0378, J0395, J0410, J0430, gSDSS, J0515, rSDSS, J0660, iSDSS, J0861, zSDSS."
     },
@@ -1042,9 +1210,24 @@
       "color": "ember",
       "icon": "users",
       "depends_on": [],
-      "depended_on_by": ["cli"],
-      "public_symbols": ["consensus_for_catalog", "consensus_for_object", "circular_mean_deg", "circular_diff_deg", "circular_std_deg", "CONSENSUS_COLUMNS", "DEFAULT_OUTLIER_K", "DEFAULT_MIN_BANDS", "DEFAULT_MIN_OUTLIER_DEG"],
-      "external_deps": ["numpy", "pandas"],
+      "depended_on_by": [
+        "cli"
+      ],
+      "public_symbols": [
+        "consensus_for_catalog",
+        "consensus_for_object",
+        "circular_mean_deg",
+        "circular_diff_deg",
+        "circular_std_deg",
+        "CONSENSUS_COLUMNS",
+        "DEFAULT_OUTLIER_K",
+        "DEFAULT_MIN_BANDS",
+        "DEFAULT_MIN_OUTLIER_DEG"
+      ],
+      "external_deps": [
+        "numpy",
+        "pandas"
+      ],
       "notes": "Weighted circular mean of per-band PAs. Weight = est_ell^2 / pa_err^2 (round galaxies contribute ~0). Eligible bands: status in {ok, weak}. Two-clause outlier rule: a band is flagged only when delta exceeds BOTH k * circular_std (default k=2) AND min_outlier_deg (default 5 deg). The absolute floor prevents tight-consensus galaxies from generating spurious outlier counts."
     },
     {
@@ -1084,7 +1267,7 @@
       "name": "Source detection (r-band sigma)",
       "module": "palfitology.detect",
       "path": "src/palfitology/detect.py",
-      "loc": 0,
+      "loc": 514,
       "kind": "stub",
       "group": "future",
       "color": "muted",
@@ -1093,109 +1276,495 @@
       "depended_on_by": [],
       "public_symbols": [],
       "planned_version": "v0.4",
-      "notes": "Sigma-clipped background + N*sigma threshold on the rSDSS cutout. Largest central connected component becomes the detection mask. The mask's second moments seed the EllipseGeometry for ALL bands of that object, replacing the catalog priors as the initial guess."
+      "notes": "Sigma-clipped background + N*sigma threshold on the rSDSS cutout. Largest central connected component becomes the detection mask. The mask's second moments seed the EllipseGeometry for ALL bands of that object, replacing the catalog priors as the initial guess.",
+      "description": "rSDSS sigma-clip source detection. Produces DetectionResult (centroid + PA + eps + mask stats) used to seed every band's fit geometry (V0.4) and to build the NaN-clip masks (V0.5)."
+    },
+    {
+      "id": "cutouts",
+      "name": "Sigma-clipped FITS I/O",
+      "module": "palfitology.cutouts",
+      "path": "src/palfitology/cutouts.py",
+      "loc": 552,
+      "kind": "module",
+      "group": "io",
+      "color": "#7AB9D1",
+      "icon": "cutouts",
+      "depends_on": [
+        "detect",
+        "images"
+      ],
+      "description": "V0.5+. Writes NaN-clipped FITS siblings to images/<id>/clipped_cutouts_<ra>_<dec>/<band>_cutout.fits using the rSDSS-derived detection mask, applied to every band. Provides locate_clipped_or_original() so fit-pa --use-clipped-cutouts can transparently fall back to the raw cutout when no clipped sibling exists."
     }
   ],
-
   "dependency_edges": [
-    {"from": "fit",        "to": "selection",  "kind": "internal"},
-    {"from": "pipeline",   "to": "fit",        "kind": "internal"},
-    {"from": "pipeline",   "to": "images",     "kind": "internal"},
-    {"from": "pipeline",   "to": "plots",      "kind": "internal"},
-    {"from": "pipeline",   "to": "psf",        "kind": "internal"},
-    {"from": "plots",      "to": "fit",        "kind": "internal"},
-    {"from": "reconcile",  "to": "catalog",    "kind": "internal"},
-    {"from": "cli",        "to": "catalog",    "kind": "internal"},
-    {"from": "cli",        "to": "pipeline",   "kind": "internal"},
-    {"from": "cli",        "to": "reconcile",  "kind": "internal"},
-    {"from": "package",    "to": "fit",        "kind": "re-export"},
-    {"from": "package",    "to": "pipeline",   "kind": "re-export"},
-    {"from": "package",    "to": "psf",        "kind": "re-export"}
+    {
+      "from": "fit",
+      "to": "selection",
+      "kind": "internal"
+    },
+    {
+      "from": "pipeline",
+      "to": "fit",
+      "kind": "internal"
+    },
+    {
+      "from": "pipeline",
+      "to": "images",
+      "kind": "internal"
+    },
+    {
+      "from": "pipeline",
+      "to": "plots",
+      "kind": "internal"
+    },
+    {
+      "from": "pipeline",
+      "to": "psf",
+      "kind": "internal"
+    },
+    {
+      "from": "plots",
+      "to": "fit",
+      "kind": "internal"
+    },
+    {
+      "from": "reconcile",
+      "to": "catalog",
+      "kind": "internal"
+    },
+    {
+      "from": "cli",
+      "to": "catalog",
+      "kind": "internal"
+    },
+    {
+      "from": "cli",
+      "to": "pipeline",
+      "kind": "internal"
+    },
+    {
+      "from": "cli",
+      "to": "reconcile",
+      "kind": "internal"
+    },
+    {
+      "from": "package",
+      "to": "fit",
+      "kind": "re-export"
+    },
+    {
+      "from": "package",
+      "to": "pipeline",
+      "kind": "re-export"
+    },
+    {
+      "from": "package",
+      "to": "psf",
+      "kind": "re-export"
+    }
   ],
-
   "data_flows": [
     {
       "id": "fit-pa-flow",
       "label": "palfitology fit-pa",
       "edges": [
-        {"from": "catalog.csv",                "to": "catalog",  "via": "load_catalog",                "carries": "DataFrame[id, A_WORLD, B_WORLD, pa_jplus, R_EFF?]"},
-        {"from": "catalog",                    "to": "pipeline", "via": "fit_catalog",                 "carries": "DataFrame"},
-        {"from": "images/<id>/*.fits",         "to": "images",   "via": "locate_band_fits",            "carries": "Path"},
-        {"from": "images",                     "to": "psf",      "via": "locate_band_psf + open",      "carries": "(image, psf_path, r_eff_pixels)"},
-        {"from": "psf",                        "to": "fit",      "via": "preprocess_for_fit",          "carries": "PSFInfo(image_for_fit, mode, psf_fwhm_pixels)"},
-        {"from": "fit",                        "to": "selection","via": "_fit_once",                   "carries": "iso_table"},
-        {"from": "selection",                  "to": "fit",      "via": "select_isophote",             "carries": "(row_idx, weak)"},
-        {"from": "fit",                        "to": "pipeline", "via": "fit_pa_with_fallbacks",       "carries": "(FitCandidate|None, n_tried)"},
-        {"from": "pipeline",                   "to": "plots",    "via": "make_band_plot",              "carries": "FitCandidate + raw image"},
-        {"from": "pipeline",                   "to": "fitted_pa_images/<id>/<band>_PA_fit.png", "via": "savefig"},
-        {"from": "pipeline",                   "to": "fitted_pa_images/<id>/<id>_summary.png",  "via": "make_summary_mosaic"},
-        {"from": "pipeline",                   "to": "fitted_pa_images/PA_results.csv",         "via": "DataFrame.to_csv"}
+        {
+          "from": "catalog.csv",
+          "to": "catalog",
+          "via": "load_catalog",
+          "carries": "DataFrame[id, A_WORLD, B_WORLD, pa_jplus, R_EFF?]"
+        },
+        {
+          "from": "catalog",
+          "to": "pipeline",
+          "via": "fit_catalog",
+          "carries": "DataFrame"
+        },
+        {
+          "from": "images/<id>/*.fits",
+          "to": "images",
+          "via": "locate_band_fits",
+          "carries": "Path"
+        },
+        {
+          "from": "images",
+          "to": "psf",
+          "via": "locate_band_psf + open",
+          "carries": "(image, psf_path, r_eff_pixels)"
+        },
+        {
+          "from": "psf",
+          "to": "fit",
+          "via": "preprocess_for_fit",
+          "carries": "PSFInfo(image_for_fit, mode, psf_fwhm_pixels)"
+        },
+        {
+          "from": "fit",
+          "to": "selection",
+          "via": "_fit_once",
+          "carries": "iso_table"
+        },
+        {
+          "from": "selection",
+          "to": "fit",
+          "via": "select_isophote",
+          "carries": "(row_idx, weak)"
+        },
+        {
+          "from": "fit",
+          "to": "pipeline",
+          "via": "fit_pa_with_fallbacks",
+          "carries": "(FitCandidate|None, n_tried)"
+        },
+        {
+          "from": "pipeline",
+          "to": "plots",
+          "via": "make_band_plot",
+          "carries": "FitCandidate + raw image"
+        },
+        {
+          "from": "pipeline",
+          "to": "fitted_pa_images/<id>/<band>_PA_fit.png",
+          "via": "savefig"
+        },
+        {
+          "from": "pipeline",
+          "to": "fitted_pa_images/<id>/<id>_summary.png",
+          "via": "make_summary_mosaic"
+        },
+        {
+          "from": "pipeline",
+          "to": "fitted_pa_images/PA_results.csv",
+          "via": "DataFrame.to_csv"
+        }
       ]
     },
     {
       "id": "reconcile-flow",
       "label": "palfitology reconcile --plot",
       "edges": [
-        {"from": "fitted_pa_images/<id>/PA_fits.csv", "to": "reconcile", "via": "_gather_per_object_fits", "carries": "long DataFrame"},
-        {"from": "catalog.csv",                       "to": "reconcile", "via": "load_catalog",            "carries": "DataFrame[id, pa_jplus]"},
-        {"from": "reconcile",                         "to": "fitted_pa_images/PA_reconciliation.csv",      "via": "to_csv"},
-        {"from": "reconcile",                         "to": "fitted_pa_images/PA_reconciliation_<band>.png", "via": "plot_reconciliation"}
+        {
+          "from": "fitted_pa_images/<id>/PA_fits.csv",
+          "to": "reconcile",
+          "via": "_gather_per_object_fits",
+          "carries": "long DataFrame"
+        },
+        {
+          "from": "catalog.csv",
+          "to": "reconcile",
+          "via": "load_catalog",
+          "carries": "DataFrame[id, pa_jplus]"
+        },
+        {
+          "from": "reconcile",
+          "to": "fitted_pa_images/PA_reconciliation.csv",
+          "via": "to_csv"
+        },
+        {
+          "from": "reconcile",
+          "to": "fitted_pa_images/PA_reconciliation_<band>.png",
+          "via": "plot_reconciliation"
+        }
       ]
     },
     {
       "id": "cluster-array-flow",
       "label": "SGE 8-task array",
       "edges": [
-        {"from": "catalog.csv",                 "to": "prepare_chunks.sh",        "via": "pandas split",        "carries": "cat_part_01..08.csv"},
-        {"from": "cat_part_NN.csv",             "to": "run_palfitology_array.sh", "via": "qsub -t 1-8 -tc 8",   "carries": "per-task fit-pa invocation"},
-        {"from": "fitted_pa_images_part_NN/",   "to": "merge_and_reconcile.sh",   "via": "qsub -hold_jid",      "carries": "merged fitted_pa_images/"}
+        {
+          "from": "catalog.csv",
+          "to": "prepare_chunks.sh",
+          "via": "pandas split",
+          "carries": "cat_part_01..08.csv"
+        },
+        {
+          "from": "cat_part_NN.csv",
+          "to": "run_palfitology_array.sh",
+          "via": "qsub -t 1-8 -tc 8",
+          "carries": "per-task fit-pa invocation"
+        },
+        {
+          "from": "fitted_pa_images_part_NN/",
+          "to": "merge_and_reconcile.sh",
+          "via": "qsub -hold_jid",
+          "carries": "merged fitted_pa_images/"
+        }
       ]
     }
   ],
-
   "csv_schemas": {
     "PA_results.csv": {
       "rows_per": "(object, band)",
       "row_count_example": 242736,
       "columns": [
-        {"name": "id",                 "type": "str",   "desc": "Object id (TILE-NUMBER)"},
-        {"name": "band",               "type": "str",   "desc": "One of the 12 J-PLUS bands"},
-        {"name": "fits_path",          "type": "str",   "desc": "Absolute path to cutout"},
-        {"name": "est_pa",             "type": "float", "desc": "Fitted PA in degrees (CCW from +x, image frame)"},
-        {"name": "est_sma",            "type": "float", "desc": "Semi-major axis, pixels"},
-        {"name": "est_ell",            "type": "float", "desc": "Ellipticity 1 - b/a"},
-        {"name": "x0",                 "type": "float", "desc": "Fitted center x"},
-        {"name": "y0",                 "type": "float", "desc": "Fitted center y"},
-        {"name": "pa_err",             "type": "float", "desc": "Uncertainty on PA, degrees"},
-        {"name": "selection_score",    "type": "float", "desc": "pa_err / sma; lower is better"},
-        {"name": "fit_config",         "type": "str",   "desc": "Which fallback config produced the winning fit"},
-        {"name": "smoothing_sigma",    "type": "float", "desc": "Gaussian sigma applied before fitting"},
-        {"name": "used_weak_fallback", "type": "int",   "desc": "1 if no isophote cleared the SMA floor"},
-        {"name": "n_configs_tried",    "type": "int",   "desc": "Total fallback ladder steps attempted"},
-        {"name": "is_imputed",         "type": "int",   "desc": "1 if all fits failed and priors were used"},
-        {"name": "status",             "type": "str",   "desc": "ok | weak | imputed | missing"},
-        {"name": "psf_mode",           "type": "str",   "desc": "raw | deconv | deconv->raw_fallback | missing_psf | off"},
-        {"name": "psf_fwhm_pixels",    "type": "float", "desc": "Measured PSF FWHM, pixels"}
+        {
+          "name": "id",
+          "type": "str",
+          "desc": "Object id (TILE-NUMBER)"
+        },
+        {
+          "name": "band",
+          "type": "str",
+          "desc": "One of the 12 J-PLUS bands"
+        },
+        {
+          "name": "fits_path",
+          "type": "str",
+          "desc": "Absolute path to cutout"
+        },
+        {
+          "name": "est_pa",
+          "type": "float",
+          "desc": "Fitted PA in degrees (CCW from +x, image frame)"
+        },
+        {
+          "name": "est_sma",
+          "type": "float",
+          "desc": "Semi-major axis, pixels"
+        },
+        {
+          "name": "est_ell",
+          "type": "float",
+          "desc": "Ellipticity 1 - b/a"
+        },
+        {
+          "name": "x0",
+          "type": "float",
+          "desc": "Fitted center x"
+        },
+        {
+          "name": "y0",
+          "type": "float",
+          "desc": "Fitted center y"
+        },
+        {
+          "name": "pa_err",
+          "type": "float",
+          "desc": "Uncertainty on PA, degrees"
+        },
+        {
+          "name": "selection_score",
+          "type": "float",
+          "desc": "pa_err / sma; lower is better"
+        },
+        {
+          "name": "fit_config",
+          "type": "str",
+          "desc": "Which fallback config produced the winning fit"
+        },
+        {
+          "name": "smoothing_sigma",
+          "type": "float",
+          "desc": "Gaussian sigma applied before fitting"
+        },
+        {
+          "name": "used_weak_fallback",
+          "type": "int",
+          "desc": "1 if no isophote cleared the SMA floor"
+        },
+        {
+          "name": "n_configs_tried",
+          "type": "int",
+          "desc": "Total fallback ladder steps attempted"
+        },
+        {
+          "name": "is_imputed",
+          "type": "int",
+          "desc": "1 if all fits failed and priors were used"
+        },
+        {
+          "name": "status",
+          "type": "str",
+          "desc": "ok | weak | imputed | missing"
+        },
+        {
+          "name": "psf_mode",
+          "type": "str",
+          "desc": "raw | deconv | deconv->raw_fallback | missing_psf | off"
+        },
+        {
+          "name": "psf_fwhm_pixels",
+          "type": "float",
+          "desc": "Measured PSF FWHM, pixels"
+        },
+        {
+          "name": "detect_status",
+          "type": "str",
+          "values_or_range": [
+            "ok",
+            "no_detection",
+            "unknown"
+          ],
+          "purpose": "V0.4: outcome of rSDSS sigma-clip detection for this object."
+        },
+        {
+          "name": "detect_npix",
+          "type": "int",
+          "purpose": "V0.4: number of pixels above the detect-sigma threshold."
+        },
+        {
+          "name": "detect_sigma",
+          "type": "float",
+          "purpose": "V0.4: sigma multiple used for the detection threshold."
+        },
+        {
+          "name": "cutout_source",
+          "type": "str",
+          "values_or_range": [
+            "clipped",
+            "original",
+            "missing"
+          ],
+          "purpose": "V0.6: which FITS file the fit actually consumed. 'clipped' = the NaN-masked sibling from make-cutouts; 'original' = raw cutout fallback (no clipped sibling found); 'missing' = neither file existed (the row is imputed/skipped)."
+        }
       ]
     },
     "PA_reconciliation.csv": {
       "rows_per": "object",
       "row_count_example": 6522,
       "columns": [
-        {"name": "id",                "type": "str"},
-        {"name": "pa_jplus",          "type": "float", "desc": "Catalog PA, sky frame (east of north)"},
-        {"name": "pa_jplus_norm",     "type": "float", "desc": "(90 - pa_jplus) mod 180 -- photutils frame"},
-        {"name": "pa_median_ok",      "type": "float", "desc": "Per-object median of OK bands"},
-        {"name": "pa_diff_median",    "type": "float", "desc": "Circular diff median vs catalog, [0, 90]"},
-        {"name": "n_bands_ok",        "type": "int"},
-        {"name": "n_bands_weak",      "type": "int"},
-        {"name": "n_bands_missing",   "type": "int"},
-        {"name": "pa_<band>",         "type": "float", "desc": "Per-band fitted PA wrapped to [0, 180)"},
-        {"name": "pa_diff_<band>",    "type": "float", "desc": "Per-band circular diff vs catalog"}
+        {
+          "name": "id",
+          "type": "str"
+        },
+        {
+          "name": "pa_jplus",
+          "type": "float",
+          "desc": "Catalog PA, sky frame (east of north)"
+        },
+        {
+          "name": "pa_jplus_norm",
+          "type": "float",
+          "desc": "(90 - pa_jplus) mod 180 -- photutils frame"
+        },
+        {
+          "name": "pa_median_ok",
+          "type": "float",
+          "desc": "Per-object median of OK bands"
+        },
+        {
+          "name": "pa_diff_median",
+          "type": "float",
+          "desc": "Circular diff median vs catalog, [0, 90]"
+        },
+        {
+          "name": "n_bands_ok",
+          "type": "int"
+        },
+        {
+          "name": "n_bands_weak",
+          "type": "int"
+        },
+        {
+          "name": "n_bands_missing",
+          "type": "int"
+        },
+        {
+          "name": "pa_<band>",
+          "type": "float",
+          "desc": "Per-band fitted PA wrapped to [0, 180)"
+        },
+        {
+          "name": "pa_diff_<band>",
+          "type": "float",
+          "desc": "Per-band circular diff vs catalog"
+        }
+      ]
+    },
+    "make_cutouts_report.csv": {
+      "produced_by": "palfitology make-cutouts",
+      "rows": "one per (id, band) pair processed",
+      "columns": [
+        {
+          "name": "id",
+          "type": "str",
+          "purpose": "Object ID."
+        },
+        {
+          "name": "band",
+          "type": "str",
+          "purpose": "J-PLUS band processed."
+        },
+        {
+          "name": "status",
+          "type": "str",
+          "values_or_range": [
+            "ok",
+            "no_detection",
+            "missing_input"
+          ],
+          "purpose": "Whether a clipped FITS was written for this band."
+        },
+        {
+          "name": "sigma_threshold",
+          "type": "float",
+          "purpose": "Sigma multiple used (default 3.0)."
+        },
+        {
+          "name": "npix_kept",
+          "type": "int",
+          "purpose": "Number of finite pixels in the clipped output."
+        },
+        {
+          "name": "detect_x0",
+          "type": "float",
+          "purpose": "Centroid x of the detection mask, in pixel coords."
+        },
+        {
+          "name": "detect_y0",
+          "type": "float",
+          "purpose": "Centroid y of the detection mask, in pixel coords."
+        },
+        {
+          "name": "out_path",
+          "type": "str",
+          "purpose": "Filesystem path of the clipped FITS, or empty on skip."
+        }
+      ]
+    },
+    "PA_consensus.csv": {
+      "produced_by": "palfitology consensus",
+      "rows": "one per object (collapse of the 12 bands)",
+      "columns": [
+        {
+          "name": "id",
+          "type": "str",
+          "purpose": "Object ID."
+        },
+        {
+          "name": "pa_consensus",
+          "type": "float",
+          "purpose": "Weighted circular mean PA across bands (deg)."
+        },
+        {
+          "name": "resultant_length",
+          "type": "float",
+          "values_or_range": "0..1",
+          "purpose": "1 = perfect cross-band agreement, 0 = uniform disagreement."
+        },
+        {
+          "name": "n_bands_used",
+          "type": "int",
+          "purpose": "Number of bands that converged + passed the outlier rule."
+        },
+        {
+          "name": "n_outliers",
+          "type": "int",
+          "purpose": "Bands flagged as outliers by the two-clause rule."
+        },
+        {
+          "name": "status",
+          "type": "str",
+          "values_or_range": [
+            "ok",
+            "low_confidence",
+            "failed"
+          ],
+          "purpose": "Composite quality flag based on n_bands_used + resultant_length."
+        }
       ]
     }
   },
-
   "filesystem": {
     "input_layout": {
       "images/<id>/fits_images_<ra>_<dec>/<band>_cutout.fits": "12 per object",
@@ -1204,51 +1773,137 @@
     },
     "output_layout": {
       "fitted_pa_images/<id>/<band>_PA_fit.png": "diagnostic, 12 per object",
-      "fitted_pa_images/<id>/<id>_summary.png":  "3x4 mosaic per object",
-      "fitted_pa_images/<id>/PA_fits.csv":       "12 rows per object",
+      "fitted_pa_images/<id>/<id>_summary.png": "3x4 mosaic per object",
+      "fitted_pa_images/<id>/PA_fits.csv": "12 rows per object",
       "fitted_pa_images/all_summaries/<id>_summary.png": "central mosaic copies",
-      "fitted_pa_images/PA_results.csv":         "master table",
-      "fitted_pa_images/PA_reconciliation.csv":  "wide cross-match",
+      "fitted_pa_images/PA_results.csv": "master table",
+      "fitted_pa_images/PA_reconciliation.csv": "wide cross-match",
       "fitted_pa_images/PA_reconciliation_<band>.png": "scatter plots"
     }
   },
-
   "constants": {
-    "ALL_BANDS": ["uJAVA", "J0378", "J0395", "J0410", "J0430", "gSDSS", "J0515", "rSDSS", "J0660", "iSDSS", "J0861", "zSDSS"],
+    "ALL_BANDS": [
+      "uJAVA",
+      "J0378",
+      "J0395",
+      "J0410",
+      "J0430",
+      "gSDSS",
+      "J0515",
+      "rSDSS",
+      "J0660",
+      "iSDSS",
+      "J0861",
+      "zSDSS"
+    ],
     "DEFAULT_PSF_GATE": 0.2,
     "default_sma_floor_px": 3.0,
     "default_sma_floor_frac": 0.05,
     "default_keep_best_of": 8,
     "n_mc_seeds": 50,
     "mc_seed": 42,
-    "smoothing_ladder_sigma": [0.0, 2.0],
-    "wiener_regularization_floor": 1e-6
+    "smoothing_ladder_sigma": [
+      0.0,
+      2.0
+    ],
+    "wiener_regularization_floor": 1e-06
   },
-
   "conventions": [
-    {"id": "pa-units",       "rule": "photutils returns PA in degrees, CCW from +x (image frame). Do NOT apply rad2deg."},
-    {"id": "pa-wrap",        "rule": "All PAs wrapped to [0, 180) before comparison -- PA is direction-only."},
-    {"id": "pa-diff",        "rule": "Circular diff in [0, 90]: min(|a-b| mod 180, 180 - |a-b| mod 180)."},
-    {"id": "pa-catalog-map", "rule": "transform_pa_jplus(d) = (90 - d) mod 180 brings sky-frame catalog PA into photutils' image frame."},
-    {"id": "parallelism",    "rule": "Per (object, band) tasks via ProcessPoolExecutor. BLAS pinned to 1 thread/worker BEFORE numpy imports."},
-    {"id": "psf-gate",       "rule": "psf-mode=auto deconvolves when psf_fwhm_pixels / r_eff_pixels >= gate (default 0.2)."},
-    {"id": "psf-fallback",   "rule": "If deconvolved fit imputes, retry on raw cutout and label psf_mode='deconv->raw_fallback'."},
-    {"id": "psf-hdu",        "rule": "PSF loader walks HDU list for first 2D image. J-PLUS PSFEx puts data in HDU[1], not HDU[0]."}
+    {
+      "id": "pa-units",
+      "rule": "photutils returns PA in degrees, CCW from +x (image frame). Do NOT apply rad2deg."
+    },
+    {
+      "id": "pa-wrap",
+      "rule": "All PAs wrapped to [0, 180) before comparison -- PA is direction-only."
+    },
+    {
+      "id": "pa-diff",
+      "rule": "Circular diff in [0, 90]: min(|a-b| mod 180, 180 - |a-b| mod 180)."
+    },
+    {
+      "id": "pa-catalog-map",
+      "rule": "transform_pa_jplus(d) = (90 - d) mod 180 brings sky-frame catalog PA into photutils' image frame."
+    },
+    {
+      "id": "parallelism",
+      "rule": "Per (object, band) tasks via ProcessPoolExecutor. BLAS pinned to 1 thread/worker BEFORE numpy imports."
+    },
+    {
+      "id": "psf-gate",
+      "rule": "psf-mode=auto deconvolves when psf_fwhm_pixels / r_eff_pixels >= gate (default 0.2)."
+    },
+    {
+      "id": "psf-fallback",
+      "rule": "If deconvolved fit imputes, retry on raw cutout and label psf_mode='deconv->raw_fallback'."
+    },
+    {
+      "id": "psf-hdu",
+      "rule": "PSF loader walks HDU list for first 2D image. J-PLUS PSFEx puts data in HDU[1], not HDU[0]."
+    },
+    {
+      "id": "CONV-CLIPPED-LAYOUT",
+      "rule": "Clipped FITS siblings live at images/<id>/clipped_cutouts_<ra>_<dec>/<band>_cutout.fits, in parallel to images/<id>/fits_images_<ra>_<dec>/<band>_cutout.fits.",
+      "since": "v0.5"
+    },
+    {
+      "id": "CONV-APPLY-BANDS-DEFAULT",
+      "rule": "`palfitology make-cutouts` defaults to --apply-bands $detect_band (rSDSS only) to keep first-run footprint small. Production array submissions must pass --apply-bands all so fit-pa --use-clipped-cutouts sees clipped siblings on every band.",
+      "since": "v0.5"
+    },
+    {
+      "id": "CONV-CUTOUT-SOURCE",
+      "rule": "PA_results.csv carries a `cutout_source` column with values {'clipped','original','missing'}, recording which FITS file each row's fit actually consumed. Use it for QC.",
+      "since": "v0.6"
+    },
+    {
+      "id": "CONV-MOSAIC-SHARED-CROP",
+      "rule": "make_summary_mosaic derives one (row_slice, col_slice) from the reference band and applies it to every panel. Per-band re-cropping is the V0.6-era bug; don't reintroduce it.",
+      "since": "v0.6"
+    }
   ],
-
   "constraints": [
-    {"category": "numerical", "rule": "Wiener K must be >= regularization_floor (1e-6). Smaller values cause noise amplification on shallow narrowband cutouts."},
-    {"category": "numerical", "rule": "SMA floor = max(3 px, 0.05 * image_half_width). Below this, photutils returns degenerate sub-pixel isophotes with artificially low pa_err."},
-    {"category": "data",      "rule": "R_EFF column must be in PIXELS (not arcsec) when psf-mode is auto or on. Missing column -> warning + fall back to 'raw' everywhere."},
-    {"category": "perf",      "rule": "12N tasks for N objects. ProcessPoolExecutor with workers = NSLOTS; do NOT exceed cores per node or BLAS contention dominates."},
-    {"category": "perf",      "rule": "Per-object mosaic is finalized when its last band returns -- mosaics appear throughout the run, not only at the end."},
-    {"category": "cluster",   "rule": "LD_PRELOAD=$CONDA_PREFIX/lib/libgomp.so.1 required on hpc-login (static-TLS dlopen workaround)."},
-    {"category": "cluster",   "rule": "`set -u` must come AFTER `conda activate` -- mpivars.deactivate.sh references unbound variables."},
-    {"category": "cluster",   "rule": "qsub -wd or -cwd: SGE inherits the submission directory. Held reconcile job must share cwd with the array tasks."},
-    {"category": "cluster",   "rule": "Cluster ships old GCC (4.8.4). Run pip install -e . inside the 'palfitology' conda env so numpy/scipy/astropy come from prebuilt conda binaries, not source builds."},
-    {"category": "git",       "rule": "Sandbox cannot commit/push for the user; always instruct user to commit and push on their laptop."}
+    {
+      "category": "numerical",
+      "rule": "Wiener K must be >= regularization_floor (1e-6). Smaller values cause noise amplification on shallow narrowband cutouts."
+    },
+    {
+      "category": "numerical",
+      "rule": "SMA floor = max(3 px, 0.05 * image_half_width). Below this, photutils returns degenerate sub-pixel isophotes with artificially low pa_err."
+    },
+    {
+      "category": "data",
+      "rule": "R_EFF column must be in PIXELS (not arcsec) when psf-mode is auto or on. Missing column -> warning + fall back to 'raw' everywhere."
+    },
+    {
+      "category": "perf",
+      "rule": "12N tasks for N objects. ProcessPoolExecutor with workers = NSLOTS; do NOT exceed cores per node or BLAS contention dominates."
+    },
+    {
+      "category": "perf",
+      "rule": "Per-object mosaic is finalized when its last band returns -- mosaics appear throughout the run, not only at the end."
+    },
+    {
+      "category": "cluster",
+      "rule": "LD_PRELOAD=$CONDA_PREFIX/lib/libgomp.so.1 required on hpc-login (static-TLS dlopen workaround)."
+    },
+    {
+      "category": "cluster",
+      "rule": "`set -u` must come AFTER `conda activate` -- mpivars.deactivate.sh references unbound variables."
+    },
+    {
+      "category": "cluster",
+      "rule": "qsub -wd or -cwd: SGE inherits the submission directory. Held reconcile job must share cwd with the array tasks."
+    },
+    {
+      "category": "cluster",
+      "rule": "Cluster ships old GCC (4.8.4). Run pip install -e . inside the 'palfitology' conda env so numpy/scipy/astropy come from prebuilt conda binaries, not source builds."
+    },
+    {
+      "category": "git",
+      "rule": "Sandbox cannot commit/push for the user; always instruct user to commit and push on their laptop."
+    }
   ],
-
   "adrs": [
     {
       "id": "ADR-001",
@@ -1282,7 +1937,7 @@
       "id": "ADR-005",
       "title": "transform_pa_jplus uses pa_corr = 180 - (pa_jplus + (pa_jplus<0)*180)",
       "status": "accepted",
-      "context": "photutils returns image-frame PA on [0, 180); J-PLUS / SExtractor THETA_IMAGE is on [-90, 90] with the ZERO POINT REVERSED (their 0° is photutils' 180°). The earlier (90 - pa) mod 180 mapping handled the wrap but not the zero-point reversal, leaving ~70% of rSDSS rows mismatched on the v0.2 cluster run.",
+      "context": "photutils returns image-frame PA on [0, 180); J-PLUS / SExtractor THETA_IMAGE is on [-90, 90] with the ZERO POINT REVERSED (their 0\u00b0 is photutils' 180\u00b0). The earlier (90 - pa) mod 180 mapping handled the wrap but not the zero-point reversal, leaving ~70% of rSDSS rows mismatched on the v0.2 cluster run.",
       "decision": "Use the TOPCAT-validated two-step mapping: first shift negatives into [0, 180), then reverse direction with 180 - tmp. Empirically collapses the reconciliation scatter onto y = x for the deep broadbands."
     },
     {
@@ -1310,8 +1965,8 @@
       "id": "ADR-009",
       "title": "Outlier rule is a two-clause AND: delta > k*sigma AND delta > min_outlier_deg",
       "status": "accepted",
-      "context": "Pure k-sigma flagging on tight-consensus galaxies (circ_std < 2°) produces spurious outliers when one band sits 5° off a 12-band mean. The v0.3 cluster run showed 86% of objects with >= 1 outlier under the pure rule.",
-      "decision": "Require an absolute-degree floor (default 5°) in addition to k*sigma. Knob configurable via --min-outlier-deg. After the floor, ~17% of objects had zero outliers; user's interpretation is that this is the floor of what the cross-band variability can support."
+      "context": "Pure k-sigma flagging on tight-consensus galaxies (circ_std < 2\u00b0) produces spurious outliers when one band sits 5\u00b0 off a 12-band mean. The v0.3 cluster run showed 86% of objects with >= 1 outlier under the pure rule.",
+      "decision": "Require an absolute-degree floor (default 5\u00b0) in addition to k*sigma. Knob configurable via --min-outlier-deg. After the floor, ~17% of objects had zero outliers; user's interpretation is that this is the floor of what the cross-band variability can support."
     },
     {
       "id": "ADR-010",
@@ -1319,107 +1974,369 @@
       "status": "tentative",
       "context": "Many galaxies are detected in rSDSS / iSDSS but invisible in narrowbands; the current fallback ladder spends a lot of work on those before imputing. We also start every band from the same catalog prior, which is loose.",
       "decision": "Add palfitology.detect: sigma-clipped background, N*sigma threshold mask on rSDSS, take the largest central connected component, use its centroid + second moments to seed EllipseGeometry for ALL bands of that object. Conservative version first (seed only, no mask multiplication or cropping)."
+    },
+    {
+      "id": "ADR-011",
+      "title": "Detection mask comes from rSDSS only; applied identically to every band",
+      "status": "accepted",
+      "date": "2026-05-21",
+      "context": "V0.4 needed a single coherent source mask across all 12 bands so the ellipse geometry is consistent. Each band detecting its own source would let faint bands lose the centroid entirely.",
+      "decision": "rSDSS is the canonical detect band. detect_source() runs on the rSDSS cutout in the parent process; the resulting DetectionResult is serialised into every (object, band) task dict and used to seed PA, eps, and the bbox crop for the summary mosaic.",
+      "consequences": "Objects whose rSDSS cutout is missing or below threshold lose the detection prior for all bands (they fall back to catalog-prior seeding). detect_band is a config knob, not a per-band loop."
+    },
+    {
+      "id": "ADR-012",
+      "title": "Clipped FITS live next to raw cutouts, not in a separate root",
+      "status": "accepted",
+      "date": "2026-05-21",
+      "context": "V0.5 had to decide where to write NaN-clipped FITS. Options: a separate <root>_clipped/ tree, or sibling folders inside the existing images/<id>/ object directory.",
+      "decision": "Sibling folders. Path layout: images/<id>/clipped_cutouts_<ra>_<dec>/<band>_cutout.fits, parallel to images/<id>/fits_images_<ra>_<dec>/<band>_cutout.fits. locate_clipped_or_original() consumes both paths atomically.",
+      "consequences": "Simpler --images-root contract (one path argument). Backup/sync of an object backs up both raw and clipped together. Downside: rm -rf of one object dir wipes both."
+    },
+    {
+      "id": "ADR-013",
+      "title": "fit-pa runs all 12 bands independently; cross-band combination is opt-in",
+      "status": "accepted",
+      "date": "2026-05-22",
+      "context": "Question raised during V0.6 cluster validation: should the pipeline auto-collapse 12 per-band PAs into one consensus PA? Or keep them separate so downstream science chooses which bands to trust?",
+      "decision": "Per-band fits stay independent. PA_results.csv carries one row per (id, band). Cross-band combination is a separate subcommand (`palfitology consensus`) that the user opts into.",
+      "consequences": "Downstream code filters PA_results.csv at analysis time (`df[df.band.isin(['rSDSS','iSDSS'])]`) rather than relying on a hardcoded trust list. PA_consensus.csv is preserved as an optional output, not a pipeline default."
+    },
+    {
+      "id": "ADR-014",
+      "title": "Summary mosaic uses one shared crop slice across all 12 bands",
+      "status": "accepted",
+      "date": "2026-05-22",
+      "context": "Pre-fix make_summary_mosaic called _detection_crop per band, which re-thresholded each band's own data against the rSDSS-derived background. Bright and faint bands produced different bounding boxes => different displayed array shapes => inconsistent panel aspect ratios. The fitted ellipse overlay also drifted off the displayed pixels in any band where the per-band crop differed from the reference.",
+      "decision": "_detection_crop_slice() is called ONCE against a reference band and the resulting (row_slice, col_slice) is applied identically to every panel. Same idiom make_clipped_summary already used.",
+      "consequences": "All 12 panels render at identical shape and the ellipse overlay aligns with the underlying pixels. Side benefit: regenerate-mosaics can re-render historical PA_results.csv runs with the corrected rendering without redoing the fits."
     }
   ],
-
   "tests": [
-    {"file": "tests/test_catalog.py",   "loc": 87,  "covers": "catalog.load_catalog, auto_discover_catalog, filter_to_existing_image_dirs"},
-    {"file": "tests/test_selection.py", "loc": 125, "covers": "selection.select_isophote (floor, score, weak fallback, face-on collapse)"},
-    {"file": "tests/test_psf.py",       "loc": 230, "covers": "psf.estimate_psf_fwhm, wiener_deconvolve, preprocess_for_fit (auto/on/off, gate, missing R_EFF, PSFEx ext-1)"},
-    {"file": "tests/test_reconcile.py", "loc": 159, "covers": "reconcile.transform_pa_jplus, circular_diff_deg, reconcile join, plot_reconciliation"},
-    {"file": "tests/test_cli.py",       "loc": 44,  "covers": "cli.build_parser smoke tests, --version"}
+    {
+      "file": "tests/test_catalog.py",
+      "loc": 87,
+      "covers": "catalog.load_catalog, auto_discover_catalog, filter_to_existing_image_dirs"
+    },
+    {
+      "file": "tests/test_selection.py",
+      "loc": 125,
+      "covers": "selection.select_isophote (floor, score, weak fallback, face-on collapse)"
+    },
+    {
+      "file": "tests/test_psf.py",
+      "loc": 230,
+      "covers": "psf.estimate_psf_fwhm, wiener_deconvolve, preprocess_for_fit (auto/on/off, gate, missing R_EFF, PSFEx ext-1)"
+    },
+    {
+      "file": "tests/test_reconcile.py",
+      "loc": 159,
+      "covers": "reconcile.transform_pa_jplus, circular_diff_deg, reconcile join, plot_reconciliation"
+    },
+    {
+      "file": "tests/test_cli.py",
+      "loc": 44,
+      "covers": "cli.build_parser smoke tests, --version"
+    }
   ],
-
   "scripts": [
-    {"path": "scripts/run_palfitology.sh",       "purpose": "single-node, 40 cores, --all",                                  "kind": "sge"},
-    {"path": "scripts/run_palfitology_slurm.sh", "purpose": "Slurm equivalent (non-CEFCA clusters)",                          "kind": "slurm"},
-    {"path": "scripts/run_palfitology_array.sh", "purpose": "8-task SGE array, -tc 8, --psf-mode auto",                       "kind": "sge-array"},
-    {"path": "scripts/prepare_chunks.sh",        "purpose": "split catalog into cat_part_01..NN.csv",                          "kind": "shell"},
-    {"path": "scripts/merge_and_reconcile.sh",   "purpose": "concat per-task CSVs, run reconcile --plot",                      "kind": "sge"},
-    {"path": "scripts/submit_all.sh",            "purpose": "one-shot driver: chunk -> array -> held reconcile (qsub -hold_jid)", "kind": "shell"},
-    {"path": "scripts/check_pa_flip.py",         "purpose": "diagnostic for direct vs 180-flipped PA agreement",               "kind": "python"}
+    {
+      "path": "scripts/run_palfitology.sh",
+      "purpose": "single-node, 40 cores, --all",
+      "kind": "sge"
+    },
+    {
+      "path": "scripts/run_palfitology_slurm.sh",
+      "purpose": "Slurm equivalent (non-CEFCA clusters)",
+      "kind": "slurm"
+    },
+    {
+      "path": "scripts/run_palfitology_array.sh",
+      "purpose": "8-task SGE array, -tc 8, --psf-mode auto",
+      "kind": "sge-array"
+    },
+    {
+      "path": "scripts/prepare_chunks.sh",
+      "purpose": "split catalog into cat_part_01..NN.csv",
+      "kind": "shell"
+    },
+    {
+      "path": "scripts/merge_and_reconcile.sh",
+      "purpose": "concat per-task CSVs, run reconcile --plot",
+      "kind": "sge"
+    },
+    {
+      "path": "scripts/submit_all.sh",
+      "purpose": "one-shot driver: chunk -> array -> held reconcile (qsub -hold_jid)",
+      "kind": "shell"
+    },
+    {
+      "path": "scripts/check_pa_flip.py",
+      "purpose": "diagnostic for direct vs 180-flipped PA agreement",
+      "kind": "python"
+    },
+    {
+      "path": "scripts/run_makecutouts_array.sh",
+      "purpose": "V0.6 SGE array: parallel make-cutouts across 8 chunks, --apply-bands all, -tc 6 (240 slots)."
+    },
+    {
+      "path": "scripts/run_fitpa_clipped_array.sh",
+      "purpose": "V0.6 SGE array: parallel fit-pa --use-clipped-cutouts; pair with -hold_jid on the cutouts array."
+    }
   ],
-
   "external_services": [
-    {"name": "CEFCA hpc-login", "kind": "compute", "purpose": "SGE-scheduled compute for production runs", "node_spec": "40 cores, conda env 'palfitology' Python 3.11"},
-    {"name": "GitHub",          "kind": "scm",     "purpose": "Source hosting", "url": "https://github.com/nisach02/palfitology"},
-    {"name": "J-PLUS archive",  "kind": "data",    "purpose": "Source of FITS cutouts and PSFs (manual download today; v0.5 automates)"}
+    {
+      "name": "CEFCA hpc-login",
+      "kind": "compute",
+      "purpose": "SGE-scheduled compute for production runs",
+      "node_spec": "40 cores, conda env 'palfitology' Python 3.11"
+    },
+    {
+      "name": "GitHub",
+      "kind": "scm",
+      "purpose": "Source hosting",
+      "url": "https://github.com/nischal-acharya27/palfitology"
+    },
+    {
+      "name": "J-PLUS archive",
+      "kind": "data",
+      "purpose": "Source of FITS cutouts and PSFs (manual download today; v0.5 automates)"
+    }
   ],
-
   "open_questions": [
     {
-      "id": "high_outlier_rate",
-      "summary": "~83% of objects have >= 1 outlier band in consensus, even with the 5-deg floor.",
-      "evidence": "v0.3 cluster run: n_outliers=0 in only 17% of 20,228 objects. Distribution mode at 1-2 outliers.",
-      "hypotheses": [
-        "Per-band visibility varies a lot: an object detected in rSDSS may be lost in noise in uJAVA, where the fit picks up the wrong axis (most likely, user's interpretation)",
-        "Tight consensus + small absolute differences still pass the 5-deg floor in many cases",
-        "Some bands genuinely have different morphology (PA varies with wavelength); known effect but small"
-      ],
-      "fix_path": "v0.4 introduces r-band sigma detection: the rSDSS detection mask seeds the EllipseGeometry for every band, so bands that don't actually detect the source are flagged before fitting. See ADR-010."
+      "id": "OQ-001",
+      "question": "How to NaN-fill clipped cutouts before fitting without biasing the isophote estimator? photutils.isophote.fit_image fails to converge when an ellipse crosses a NaN boundary, so fit-pa --use-clipped-cutouts still imputes a fraction of rows on real data.",
+      "status": "open; queued as V0.6.1"
+    },
+    {
+      "id": "OQ-002",
+      "question": "What multi-source heuristic is robust enough for the J-PLUS catalog? The V0.7 plan is radial-profile bimodality; needs cluster validation against a hand-labelled subset before being made the default.",
+      "status": "open; queued as V0.7"
+    },
+    {
+      "id": "OQ-003",
+      "question": "Per-band trust ranking: should the consensus weighting be biased toward rSDSS/iSDSS, or should it stay purely (est_ell^2 / pa_err^2) weighted? Hard to answer without ground truth.",
+      "status": "open; needs PSF-aware analysis"
     }
   ],
-
   "v0_3_run_results": {
     "as_of": "2026-05-20",
     "n_objects": 20228,
     "outlier_floor_deg": 5.0,
     "outlier_k_sigma": 2.0,
-    "status_distribution": {"ok": 19320, "low_confidence": 783, "failed": 125},
-    "resultant_length_stats": {"min": 0.0, "p25": 0.781, "median": 0.947, "mean": 0.846, "p75": 0.992, "max": 1.0},
-    "n_outliers_distribution": {"0": 3449, "1": 4285, "2": 3874, "3": 2671, "4": 1665, "5": 1066, "6": 819, "7": 665, "8": 586, "9_plus": 501}
+    "status_distribution": {
+      "ok": 19320,
+      "low_confidence": 783,
+      "failed": 125
+    },
+    "resultant_length_stats": {
+      "min": 0.0,
+      "p25": 0.781,
+      "median": 0.947,
+      "mean": 0.846,
+      "p75": 0.992,
+      "max": 1.0
+    },
+    "n_outliers_distribution": {
+      "0": 3449,
+      "1": 4285,
+      "2": 3874,
+      "3": 2671,
+      "4": 1665,
+      "5": 1066,
+      "6": 819,
+      "7": 665,
+      "8": 586,
+      "9_plus": 501
+    }
   },
   "v0_2_run_results": {
     "as_of": "2026-05-19",
     "catalog": "1638518.csv (7900 objects)",
     "n_rows_total": 242736,
     "duplicates_dropped_in_merge": 7764,
-    "psf_mode_distribution": {"deconv": 210254, "deconv->raw_fallback": 21489, "raw": 10993},
-    "status_distribution": {"ok": 198501, "imputed": 44235},
+    "psf_mode_distribution": {
+      "deconv": 210254,
+      "deconv->raw_fallback": 21489,
+      "raw": 10993
+    },
+    "status_distribution": {
+      "ok": 198501,
+      "imputed": 44235
+    },
     "status_by_band_imputed_pct": {
-      "uJAVA": 27.8, "J0378": 26.3, "J0395": 24.0, "J0410": 19.9, "J0430": 18.0,
-      "gSDSS": 14.9, "J0515": 15.8, "rSDSS": 12.9, "J0660": 14.1, "iSDSS": 14.5, "J0861": 15.2, "zSDSS": 15.2
+      "uJAVA": 27.8,
+      "J0378": 26.3,
+      "J0395": 24.0,
+      "J0410": 19.9,
+      "J0430": 18.0,
+      "gSDSS": 14.9,
+      "J0515": 15.8,
+      "rSDSS": 12.9,
+      "J0660": 14.1,
+      "iSDSS": 14.5,
+      "J0861": 15.2,
+      "zSDSS": 15.2
     },
     "pa_flip_table": {
-      "uJAVA": {"med_direct_deg": 27.6, "med_flipped_deg": 28.4, "flip_wins_pct": 46.4},
-      "J0378": {"med_direct_deg": 29.8, "med_flipped_deg": 26.9, "flip_wins_pct": 49.1},
-      "J0395": {"med_direct_deg": 30.5, "med_flipped_deg": 23.7, "flip_wins_pct": 50.9},
-      "J0410": {"med_direct_deg": 33.1, "med_flipped_deg": 18.7, "flip_wins_pct": 57.4},
-      "J0430": {"med_direct_deg": 34.5, "med_flipped_deg": 15.8, "flip_wins_pct": 59.7},
-      "gSDSS": {"med_direct_deg": 35.8, "med_flipped_deg": 10.6, "flip_wins_pct": 66.0},
-      "J0515": {"med_direct_deg": 35.6, "med_flipped_deg": 12.2, "flip_wins_pct": 64.2},
-      "rSDSS": {"med_direct_deg": 37.5, "med_flipped_deg": 7.8,  "flip_wins_pct": 70.4},
-      "J0660": {"med_direct_deg": 36.7, "med_flipped_deg": 9.6,  "flip_wins_pct": 67.2},
-      "iSDSS": {"med_direct_deg": 35.5, "med_flipped_deg": 8.2,  "flip_wins_pct": 68.4},
-      "J0861": {"med_direct_deg": 34.9, "med_flipped_deg": 10.4, "flip_wins_pct": 65.5},
-      "zSDSS": {"med_direct_deg": 34.5, "med_flipped_deg": 9.2,  "flip_wins_pct": 66.6}
+      "uJAVA": {
+        "med_direct_deg": 27.6,
+        "med_flipped_deg": 28.4,
+        "flip_wins_pct": 46.4
+      },
+      "J0378": {
+        "med_direct_deg": 29.8,
+        "med_flipped_deg": 26.9,
+        "flip_wins_pct": 49.1
+      },
+      "J0395": {
+        "med_direct_deg": 30.5,
+        "med_flipped_deg": 23.7,
+        "flip_wins_pct": 50.9
+      },
+      "J0410": {
+        "med_direct_deg": 33.1,
+        "med_flipped_deg": 18.7,
+        "flip_wins_pct": 57.4
+      },
+      "J0430": {
+        "med_direct_deg": 34.5,
+        "med_flipped_deg": 15.8,
+        "flip_wins_pct": 59.7
+      },
+      "gSDSS": {
+        "med_direct_deg": 35.8,
+        "med_flipped_deg": 10.6,
+        "flip_wins_pct": 66.0
+      },
+      "J0515": {
+        "med_direct_deg": 35.6,
+        "med_flipped_deg": 12.2,
+        "flip_wins_pct": 64.2
+      },
+      "rSDSS": {
+        "med_direct_deg": 37.5,
+        "med_flipped_deg": 7.8,
+        "flip_wins_pct": 70.4
+      },
+      "J0660": {
+        "med_direct_deg": 36.7,
+        "med_flipped_deg": 9.6,
+        "flip_wins_pct": 67.2
+      },
+      "iSDSS": {
+        "med_direct_deg": 35.5,
+        "med_flipped_deg": 8.2,
+        "flip_wins_pct": 68.4
+      },
+      "J0861": {
+        "med_direct_deg": 34.9,
+        "med_flipped_deg": 10.4,
+        "flip_wins_pct": 65.5
+      },
+      "zSDSS": {
+        "med_direct_deg": 34.5,
+        "med_flipped_deg": 9.2,
+        "flip_wins_pct": 66.6
+      }
     }
   },
-
   "roadmap": [
-    {"version": "v0.1", "feature": "Refactor V7 monolith into package + CLI",            "status": "shipped"},
-    {"version": "v0.2", "feature": "PSF-aware fitting (Wiener deconv + auto gate)",       "status": "shipped; cluster-validated on 242k rows"},
-    {"version": "v0.3", "feature": "Cross-band PA consensus + outlier flagging",           "status": "shipped; cluster-validated, median R = 0.95 over 20k objects"},
-    {"version": "v0.4", "feature": "r-band sigma-cutoff detection seeds the fit geometry", "status": "next; planned for the upcoming session"},
-    {"version": "v0.5", "feature": "GALFIT priors writer",                                 "status": "planned"},
-    {"version": "v0.6", "feature": "Download integration (AutomatedImageDownloadsV2 port)","status": "planned"}
+    {
+      "version": "v0.1",
+      "feature": "Refactor V7 monolith into package + CLI",
+      "status": "shipped"
+    },
+    {
+      "version": "v0.2",
+      "feature": "PSF-aware fitting (Wiener deconv + auto gate)",
+      "status": "shipped; cluster-validated on 242k rows"
+    },
+    {
+      "version": "v0.3",
+      "feature": "Cross-band PA consensus + outlier flagging",
+      "status": "shipped; cluster-validated, median R = 0.95 over 20k objects"
+    },
+    {
+      "version": "v0.4",
+      "feature": "rSDSS sigma-clip detection seeds the fit geometry for every band",
+      "status": "shipped; detect.py + 14 new tests; 81/81 green"
+    },
+    {
+      "version": "v0.5",
+      "feature": "NaN-clipped FITS siblings via `palfitology make-cutouts`",
+      "status": "shipped; clipped_cutouts_<ra>_<dec>/<band>_cutout.fits layout"
+    },
+    {
+      "version": "v0.5.1",
+      "feature": "`palfitology summarize-cutouts` diagnostic raw|clipped mosaic",
+      "status": "shipped"
+    },
+    {
+      "version": "v0.6",
+      "feature": "`fit-pa --use-clipped-cutouts` consumes clipped FITS with raw fallback",
+      "status": "shipped; cluster validation in progress (2026-05-22)"
+    },
+    {
+      "version": "v0.6 patches",
+      "feature": "`regenerate-mosaics` subcommand to re-render summary PNGs without re-fitting (refresh after a plots.py change). plots.make_summary_mosaic shared-crop-slice fix so all 12 panels share one window. scripts/run_makecutouts_array.sh passes --apply-bands all.",
+      "status": "shipped (2026-05-22)"
+    },
+    {
+      "version": "v0.6.1",
+      "feature": "NaN-fill for clipped cutouts before fitting (photutils.isophote fails to converge across NaN boundaries). Previous attempt was rolled back 2026-05-22; a fresh design is queued.",
+      "status": "open caveat / queued"
+    },
+    {
+      "version": "v0.7",
+      "feature": "Multi-source detection. Flag cutouts containing more than one source via radial-profile bimodality so confused fits don't quietly degrade the cross-band consensus.",
+      "status": "designed (see project_v07_multi_source memory); not started"
+    },
+    {
+      "version": "v0.8",
+      "feature": "GALFIT priors writer (galfit.py is currently a stub).",
+      "status": "planned"
+    },
+    {
+      "version": "v0.9",
+      "feature": "Download integration (AutomatedImageDownloadsV2 port; download.py is a stub).",
+      "status": "planned"
+    }
   ],
-
   "theme": {
     "name": "Claude",
-    "bg": "#F5F4EE", "surface": "#FFFFFF", "warm": "#E8E6DC", "rule": "#E1DFD5",
-    "text": "#1F1E1B", "text_2": "#5A5854", "text_3": "#8A8881",
-    "ember": "#D97757", "clay": "#C96442",
-    "code_bg": "#26241D", "code_fg": "#F5F4EE",
+    "bg": "#F5F4EE",
+    "surface": "#FFFFFF",
+    "warm": "#E8E6DC",
+    "rule": "#E1DFD5",
+    "text": "#1F1E1B",
+    "text_2": "#5A5854",
+    "text_3": "#8A8881",
+    "ember": "#D97757",
+    "clay": "#C96442",
+    "code_bg": "#26241D",
+    "code_fg": "#F5F4EE",
     "groups": {
-      "ingest":      "#D97757",
-      "psf":         "#C96442",
-      "fit":         "#D97757",
+      "ingest": "#D97757",
+      "psf": "#C96442",
+      "fit": "#D97757",
       "orchestrate": "#C96442",
-      "output":      "#A87850",
-      "interface":   "#C96442",
-      "future":      "#8A8881"
+      "output": "#A87850",
+      "interface": "#C96442",
+      "future": "#8A8881"
     }
+  },
+  "v0_6_run_results": {
+    "as_of": "2026-05-22",
+    "status": "cluster validation in progress",
+    "submission": "Array job: 8 tasks of make-cutouts (--apply-bands all) chained via qsub -hold_jid into 8 tasks of fit-pa --use-clipped-cutouts. 240 main.q slots in flight (-pe parallel 40, -tc 6). Submitted from ~/PALFITology_OLD on hpc-login.",
+    "expected_outputs": [
+      "fitted_pa_clipped_part_NN/PA_results.csv (per task)",
+      "fitted_pa_clipped_part_NN/<id>/<id>_summary.png + all_summaries/ (per task)",
+      "Merged PA_results_clipped_merged.csv after manual concat"
+    ],
+    "open_caveat": "V0.6 does NOT fill NaN before fitting. Some fraction of rows will come back with status='imputed' where photutils.isophote hit the NaN boundary; that fraction is what V0.6.1 will measure and fix."
   }
 }
 
