@@ -8,8 +8,8 @@ location, and the next stage picks up from there.
 |-------|------------|--------|--------|---------|
 | 1 | `palfitology download`  | planned | catalog CSV                       | `images/<id>/{fits_images_*, psfs_*}/` |
 | 2 | `palfitology fit-pa`    | working | `images/`, catalog CSV            | `fitted_pa_images/<id>/*_PA_fit.png`, `PA_results.csv` |
-| 3 | `palfitology consensus` | planned | `PA_results.csv`                  | `consensus.csv` with per-object PA/ell + flags |
-| 4 | `palfitology galfit`    | planned | `consensus.csv`, `images/`, PSFs  | one GALFIT input block per object       |
+| 3 | `palfitology consensus` | working | `PA_results.csv`                  | `PA_consensus.csv` with per-object PA/ell + flags |
+| 4 | `palfitology galfit`    | working | `PA_consensus.csv`, `PA_results.csv` | `galfit_inputs/<id>.feedme` (+ runs GALFIT) |
 
 ## Stage 2 — fit-pa
 
@@ -72,15 +72,30 @@ fitted_pa_images/
 - `fit_config`, `smoothing_sigma`, `used_weak_fallback`, `n_configs_tried`
 - `is_imputed`, `status` (`ok` / `weak` / `imputed` / `missing`)
 
+## Stage 4 — galfit
+
+`palfitology galfit` joins `PA_consensus.csv` (per-object PA/ell) with
+`PA_results.csv` (per-band centers and the science-band cutout path) and
+writes one single-Sersic GALFIT input file per object to `galfit_inputs/`.
+Two geometry priors come from the consensus:
+
+- **PA** — `pa_consensus`, converted from photutils (CCW-from-+x) to GALFIT's
+  convention (+90°, wrapped to (-180, 180]).
+- **axis ratio** — `q = 1 - ell_consensus`, clamped to (0.05, 1].
+
+Magnitude, effective radius, and Sersic index are seeded and left free.
+Zeropoint and pixel scale come from `--magzp` / `--pixscale` (defaults:
+`23.0` and `0.2627` arcsec/px for J-PLUS/T80Cam). Unless `--no-run` is set,
+the GALFIT binary (`--galfit-bin`) is invoked on each `.feedme`.
+
 ## Roadmap
 
-Next planned upgrades (from the working notebook):
+Shipped: PSF-aware fit (v0.2), cross-band consensus (v0.3), sigma-cutoff
+detection (v0.4), clipped cutouts (v0.5/v0.6), GALFIT writer (v0.7).
 
-1. **PSF-aware fit** (v0.2) — Wiener deconvolution against the per-band PSF
-   before the photutils fit, gated on PSF FWHM vs catalog `R_EFF`.
-2. **Cross-band consensus** (v0.3) — per-object PA/ell from a weighted
-   combination of the 12 bands, with outlier flagging.
-3. **GALFIT priors writer** (v0.4) — emit GALFIT input blocks from the
-   consensus values, closing the loop with the existing `GalfitM/` pipeline.
-4. **Download integration** (v0.5) — port the existing
-   `AutomatedImageDownloadsV2` script into `palfitology download`.
+Next planned upgrades:
+
+1. **Download integration** — port the existing `AutomatedImageDownloadsV2`
+   script into `palfitology download`.
+2. **Multi-source detection** (v0.7+) — flag confused cutouts via
+   radial-profile bimodality before they degrade the consensus.

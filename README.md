@@ -10,7 +10,7 @@ galaxies and a folder of FITS cutouts into:
 - per-object diagnostic PNGs (one per band) and a 3×4 mosaic summarising all
   twelve J-PLUS / SDSS filters,
 - a results CSV with one row per `(object, band)`,
-- (planned) cross-band consensus values and GALFIT-ready input files.
+- cross-band consensus values and GALFIT-ready single-Sersic input files.
 
 The pipeline is built around `photutils.isophote.Ellipse` with a robust,
 face-on-safe isophote selection rule (see `docs/design.md`) and runs many
@@ -30,8 +30,10 @@ galaxies in parallel on a multi-core node.
 
 ## Status
 
-Early alpha. Three subcommands working: `palfitology fit-pa`,
-`palfitology reconcile`, `palfitology consensus`.
+Early alpha. Working subcommands: `palfitology fit-pa`,
+`palfitology reconcile`, `palfitology consensus`, `palfitology make-cutouts`,
+`palfitology summarize-cutouts`, `palfitology regenerate-mosaics`,
+`palfitology galfit`.
 
 **v0.2** — PSF-aware preprocessing (Wiener deconvolution gated on PSF
 FWHM vs catalog `R_EFF`). Shipped, cluster-validated on 243k rows.
@@ -44,8 +46,13 @@ Shipped, cluster-validated on 20k objects.
 will seed the isophote-fit geometry for every band, replacing the catalog
 priors as the initial guess. This is the next planned upgrade.
 
-**v0.5/v0.6** — planned: GALFIT priors writer and a download integration
-(`AutomatedImageDownloadsV2` port).
+**v0.7** — GALFIT input writer. `palfitology galfit` turns each object's
+consensus PA and ellipticity into a single-Sersic `.feedme` (PA and axis
+ratio as geometry priors; magnitude, effective radius, and Sersic index left
+free) and optionally runs the GALFIT binary on each. Shipped.
+
+**Download** — planned: `AutomatedImageDownloadsV2` port
+(`palfitology download`).
 
 ## Install
 
@@ -101,6 +108,38 @@ For a quick sanity check on five objects with two bands:
 palfitology fit-pa --limit 5 --bands rSDSS iSDSS --workers 4
 ```
 
+## From PA fit to GALFIT
+
+The full per-object morphology flow is three commands:
+
+```bash
+palfitology fit-pa --all --workers 40      # -> fitted_pa_images/PA_results.csv
+palfitology consensus                       # -> fitted_pa_images/PA_consensus.csv
+palfitology galfit --magzp 23.5             # -> galfit_inputs/<id>.feedme  (+ runs GALFIT)
+```
+
+`palfitology galfit` joins `PA_consensus.csv` (per-object PA and ellipticity)
+with `PA_results.csv` (per-band centers and the science-band cutout path) and
+writes one single-Sersic GALFIT input file per object into `galfit_inputs/`.
+The consensus drives two geometry priors:
+
+- **position angle** — `pa_consensus`, converted from the photutils
+  (CCW-from-+x) convention to GALFIT's (+90°, wrapped to (-180, 180]).
+- **axis ratio** — `q = 1 - ell_consensus`, clamped to (0.05, 1].
+
+Magnitude, effective radius, and the Sersic index are seeded with starting
+guesses and left free for GALFIT to optimise. By default the binary is
+invoked on each file; pass `--no-run` to write inputs only. Useful flags:
+
+```bash
+palfitology galfit \
+    --science-band rSDSS \   # band whose cutout GALFIT fits (default rSDSS)
+    --magzp 23.5 \           # photometric zeropoint (J-PLUS, band-dependent)
+    --pixscale 0.2627 \      # arcsec/px (J-PLUS/T80Cam default)
+    --galfit-bin galfit \    # executable name or path
+    --no-run                 # write .feedme files only
+```
+
 ## Catalog format
 
 The catalog CSV must contain these columns:
@@ -150,8 +189,8 @@ The `palfitology` CLI is organised as subcommands, one per pipeline stage:
 | `palfitology fit-pa`    | working  | Per-band isophotal PA fit + diagnostics                          |
 | `palfitology reconcile` | working  | Cross-match fitted PAs against catalog `pa_jplus` (with scatter plots) |
 | `palfitology consensus` | working  | Cross-band weighted circular-mean consensus + outlier flagging   |
+| `palfitology galfit`    | working  | Emit (and optionally run) single-Sersic GALFIT input files       |
 | `palfitology download`  | planned  | Fetch J-PLUS cutouts and PSFs for catalog entries                |
-| `palfitology galfit`    | planned  | Emit GALFIT-ready input files from consensus values              |
 
 ## Development
 

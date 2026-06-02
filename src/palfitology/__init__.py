@@ -8,7 +8,7 @@ the fit logic into notebooks or other scripts.
 
 from __future__ import annotations
 
-__version__ = "0.3.0.dev0"
+__version__ = "0.7.0.dev0"
 
 from .consensus import (
     circular_diff_deg,

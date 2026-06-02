@@ -44,7 +44,7 @@ src/palfitology/
   cli.py           # argparse for every subcommand
   selection.py     # face-on-safe isophote picker (V0.1+)
   catalog.py       # auto_discover_catalog (skips palfitology output CSVs)
-  galfit.py        # STUB — empty; GALFIT writer is a roadmap item
+  galfit.py        # V0.7: single-Sersic .feedme writer + GALFIT runner
 notebooks/
   sigma_clip_and_fit.ipynb         # synthetic-data tutorial (no real data needed)
   sigma_clip_and_fit_jplus.ipynb   # real-data tutorial pointed at PALFITology_old/images
@@ -71,7 +71,21 @@ palfitology summarize-cutouts                   # V0.5.1: per-object raw|clipped
 palfitology regenerate-mosaics                  # V0.6: re-render <id>_summary.png from PA_results.csv (no re-fit)
 palfitology reconcile                           # V0.1+: catalog PA vs fitted PA
 palfitology consensus                           # V0.3: cross-band weighted mean
+palfitology galfit                              # V0.7: single-Sersic GALFIT inputs (+ run)
 ```
+
+### V0.7 galfit (shipped this session)
+
+`palfitology galfit` reads `fitted_pa_images/{PA_consensus.csv,PA_results.csv}`
+and writes `galfit_inputs/<id>.feedme` — one single-Sersic block per object.
+Priors: PA = `pa_consensus` (converted photutils→GALFIT: +90° wrapped to
+(-180,180]); axis ratio `q = 1 - ell_consensus` (clamped (0.05,1]). Center
+from the science-band (`rSDSS`) `x0/y0` shifted 0→1-based. Magnitude, R_e,
+Sersic n seeded and left free. `--magzp`/`--pixscale` flags (defaults 23.0 /
+0.2627). Runs the GALFIT binary per object unless `--no-run`. Code in
+`galfit.py`, CLI in `galfit._add_galfit_subparser`, 15 tests in
+`tests/test_galfit.py`. The only photutils↔GALFIT PA bridge in the pipeline
+is `pa_photutils_to_galfit`.
 
 FITS layout convention:
 - Raw cutouts: `images/<id>/fits_images_<ra>_<dec>/<band>_cutout.fits`
